@@ -1,0 +1,10 @@
+{
+  "name": "cl-catalog-pim",
+  "private": true,
+  "description": "Каталог анализов Centrālā Laboratorija: прототип PIM, Office Scripts текущего Excel, документация",
+  "scripts": {
+    "test": "node --test \"prototype/tests/*.test.js\"",
+    "serve": "python3 -m http.server 8080 --directory prototype"
+  },
+  "engines": { "node": ">=20" }
+}

@@ -1,0 +1,1028 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CL Testu katalogs</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+/* Layout: fixed left navigation + scrolling work area; test card opens as a right-side drawer.
+   Codes of tests are set in mono, state is encoded as colored stripes and chips. */
+:root {
+  --bg: #eef2f3;
+  --surface: #ffffff;
+  --surface-2: #f6f8f9;
+  --ink: #14212b;
+  --muted: #5a6a76;
+  --line: #d6dee3;
+  --accent: #0a6c78;
+  --accent-ink: #ffffff;
+  --accent-soft: #dff0f1;
+  --good: #2e7a3a; --good-soft: #e3f2e5;
+  --warn: #9a5b00; --warn-soft: #fbefd9;
+  --bad: #b1261d; --bad-soft: #fbe3e0;
+  --info: #3a5aa6; --info-soft: #e6ecf8;
+  --font-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
+  --radius: 6px;
+  --shadow: 0 8px 28px rgba(16, 33, 43, .16);
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1619; --surface: #162126; --surface-2: #1b282e; --ink: #e4ecef; --muted: #93a6b0; --line: #2a3a42;
+    --accent: #4fbfcb; --accent-ink: #062126; --accent-soft: #163a40;
+    --good: #6cc47a; --good-soft: #1a3320; --warn: #e3a64a; --warn-soft: #3a2b12; --bad: #f08a80; --bad-soft: #3d1c19; --info: #8eaaf0; --info-soft: #1d2945;
+    --shadow: 0 8px 28px rgba(0, 0, 0, .5);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1619; --surface: #162126; --surface-2: #1b282e; --ink: #e4ecef; --muted: #93a6b0; --line: #2a3a42;
+  --accent: #4fbfcb; --accent-ink: #062126; --accent-soft: #163a40;
+  --good: #6cc47a; --good-soft: #1a3320; --warn: #e3a64a; --warn-soft: #3a2b12; --bad: #f08a80; --bad-soft: #3d1c19; --info: #8eaaf0; --info-soft: #1d2945;
+  --shadow: 0 8px 28px rgba(0, 0, 0, .5);
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body { background: var(--bg); color: var(--ink); font: 14px/1.45 var(--font-body); }
+button, input, select, textarea { font: inherit; color: inherit; }
+.mono { font-family: var(--font-mono); font-size: 13px; }
+.num { font-variant-numeric: tabular-nums; text-align: right; }
+.muted { color: var(--muted); }
+h1, h2, h3 { margin: 0; text-wrap: balance; font-weight: 600; }
+h2 { font-size: 20px; }
+h3 { font-size: 15px; }
+a { color: var(--accent); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+
+.app { display: grid; grid-template-columns: 228px 1fr; height: 100%; }
+.nav { background: var(--surface); border-right: 1px solid var(--line); display: flex; flex-direction: column; gap: 2px; padding: 16px 10px; overflow-y: auto; }
+.brand { padding: 4px 10px 16px; display: grid; gap: 2px; }
+.brand b { font-size: 16px; letter-spacing: .01em; }
+.brand span { font-size: 12px; color: var(--muted); }
+.nav button { display: flex; justify-content: space-between; align-items: center; gap: 8px; width: 100%; text-align: left; border: 0; background: none; padding: 8px 10px; border-radius: var(--radius); cursor: pointer; color: var(--ink); }
+.nav button:hover { background: var(--surface-2); }
+.nav button[aria-current="page"] { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.badge { font-size: 12px; font-variant-numeric: tabular-nums; padding: 0 7px; border-radius: 10px; background: var(--surface-2); color: var(--muted); border: 1px solid var(--line); }
+.badge.bad { background: var(--bad-soft); color: var(--bad); border-color: transparent; }
+.badge.warn { background: var(--warn-soft); color: var(--warn); border-color: transparent; }
+.badge.acc { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
+.nav .foot { margin-top: auto; padding: 12px 10px 0; font-size: 12px; color: var(--muted); display: grid; gap: 6px; }
+
+.main { overflow-y: auto; display: flex; flex-direction: column; min-width: 0; }
+.banner { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; padding: 12px 24px; border-bottom: 1px solid var(--line); }
+.banner.snap { background: var(--info-soft); }
+.banner.local { background: var(--warn-soft); }
+.banner p { margin: 0; max-width: 75ch; }
+.view { padding: 20px 24px 48px; display: grid; gap: 16px; align-content: start; }
+.view-head { display: flex; flex-wrap: wrap; gap: 12px; justify-content: space-between; align-items: flex-end; }
+.view-head p { margin: 4px 0 0; color: var(--muted); max-width: 80ch; }
+
+.btn { border: 1px solid var(--line); background: var(--surface); padding: 6px 12px; border-radius: var(--radius); cursor: pointer; white-space: nowrap; }
+.btn:hover:not(:disabled) { border-color: var(--accent); }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 500; }
+.btn.danger { color: var(--bad); }
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+.btn.sm { padding: 3px 8px; font-size: 13px; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.field { display: grid; gap: 4px; }
+.field label, .lbl { font-size: 12px; color: var(--muted); }
+input[type="text"], input[type="search"], input[type="number"], select, textarea { border: 1px solid var(--line); background: var(--surface); border-radius: var(--radius); padding: 6px 8px; min-width: 0; }
+textarea { width: 100%; min-height: 72px; resize: vertical; }
+input[type="search"] { width: 260px; }
+
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; display: grid; gap: 12px; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+.tile { background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--line); border-radius: var(--radius); padding: 10px 12px; display: grid; gap: 2px; }
+.tile b { font-size: 22px; font-variant-numeric: tabular-nums; font-weight: 600; }
+.tile span { font-size: 12px; color: var(--muted); }
+.tile.good { border-left-color: var(--good); } .tile.warn { border-left-color: var(--warn); } .tile.bad { border-left-color: var(--bad); } .tile.acc { border-left-color: var(--accent); } .tile.info { border-left-color: var(--info); }
+
+.chip { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; padding: 1px 7px; border-radius: 10px; white-space: nowrap; border: 1px solid transparent; }
+.chip.good { background: var(--good-soft); color: var(--good); }
+.chip.warn { background: var(--warn-soft); color: var(--warn); }
+.chip.bad { background: var(--bad-soft); color: var(--bad); }
+.chip.info { background: var(--info-soft); color: var(--info); }
+.chip.acc { background: var(--accent-soft); color: var(--accent); }
+.chip.plain { background: var(--surface-2); color: var(--muted); border-color: var(--line); }
+
+.tablewrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
+table { border-collapse: collapse; width: 100%; }
+th, td { padding: 7px 10px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+th { font-size: 12px; font-weight: 500; color: var(--muted); background: var(--surface-2); position: sticky; top: 0; z-index: 1; white-space: nowrap; }
+tbody tr.click { cursor: pointer; }
+tbody tr.click:hover td { background: var(--surface-2); }
+tr.group td { background: var(--accent-soft); color: var(--accent); font-weight: 600; font-size: 13px; }
+td.stripe { width: 4px; padding: 0; }
+td.stripe.bad { background: var(--bad); } td.stripe.warn { background: var(--warn); } td.stripe.acc { background: var(--accent); } td.stripe.info { background: var(--info); }
+td.name { min-width: 260px; }
+.toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: end; }
+.bulk { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; background: var(--accent-soft); border: 1px solid var(--accent); border-radius: var(--radius); padding: 8px 12px; }
+.pager { display: flex; gap: 8px; align-items: center; justify-content: flex-end; }
+.empty { padding: 32px; text-align: center; color: var(--muted); }
+
+.drawer-back { position: fixed; inset: 0; background: rgba(10, 20, 25, .35); z-index: 20; }
+.drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(760px, 100%); background: var(--bg); z-index: 21; display: flex; flex-direction: column; box-shadow: var(--shadow); }
+.drawer header { background: var(--surface); padding: 14px 20px; border-bottom: 1px solid var(--line); display: flex; gap: 12px; justify-content: space-between; align-items: flex-start; }
+.drawer .body { overflow-y: auto; padding: 16px 20px 24px; display: grid; gap: 14px; align-content: start; }
+.drawer footer { background: var(--surface); border-top: 1px solid var(--line); padding: 10px 20px; display: flex; gap: 8px; justify-content: space-between; align-items: center; }
+.kv { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px 16px; }
+.kv > div { display: grid; gap: 2px; min-width: 0; }
+.kv .v { overflow-wrap: anywhere; }
+.form { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px 16px; }
+.form .wide { grid-column: 1 / -1; }
+.hint { font-size: 12px; color: var(--warn); }
+.miss { border-color: var(--warn) !important; background: var(--warn-soft) !important; }
+.dirty { border-color: var(--accent) !important; box-shadow: 0 0 0 1px var(--accent); }
+.conflict { border: 1px solid var(--bad); background: var(--bad-soft); border-radius: var(--radius); padding: 10px 12px; display: grid; gap: 6px; }
+.hist { display: grid; gap: 6px; font-size: 13px; }
+.hist div { display: grid; grid-template-columns: 130px 1fr; gap: 8px; }
+pre.json { margin: 0; max-height: 360px; overflow: auto; background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--radius); padding: 10px; font: 12px/1.45 var(--font-mono); white-space: pre; }
+.drop { border: 2px dashed var(--line); border-radius: var(--radius); padding: 24px; text-align: center; display: grid; gap: 8px; justify-items: center; background: var(--surface); }
+.drop.over { border-color: var(--accent); background: var(--accent-soft); }
+.alert { border-radius: var(--radius); padding: 10px 12px; display: grid; gap: 4px; }
+.alert.bad { background: var(--bad-soft); color: var(--bad); }
+.alert.warn { background: var(--warn-soft); color: var(--warn); }
+.alert.info { background: var(--info-soft); color: var(--info); }
+.alert ul { margin: 0; padding-left: 18px; }
+.checklist { display: grid; gap: 8px; }
+.check { display: grid; grid-template-columns: 4px 1fr auto auto; gap: 12px; align-items: center; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 12px 10px 0; }
+.check .sev { align-self: stretch; border-radius: 0 3px 3px 0; }
+.check .sev.bad { background: var(--bad); } .check .sev.warn { background: var(--warn); } .check .sev.info { background: var(--info); }
+.check b { font-variant-numeric: tabular-nums; font-size: 18px; }
+.modal-back { position: fixed; inset: 0; background: rgba(10, 20, 25, .45); z-index: 40; display: grid; place-items: center; padding: 16px; }
+.modal { background: var(--surface); border-radius: 8px; padding: 18px 20px; width: min(520px, 100%); display: grid; gap: 12px; box-shadow: var(--shadow); }
+.toasts { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); z-index: 50; display: grid; gap: 8px; }
+.toast { background: var(--ink); color: var(--bg); padding: 8px 14px; border-radius: var(--radius); box-shadow: var(--shadow); max-width: 560px; }
+.toast.bad { background: var(--bad); color: #fff; }
+.progress { height: 6px; background: var(--surface-2); border-radius: 3px; overflow: hidden; }
+.progress i { display: block; height: 100%; background: var(--accent); }
+.legend { display: flex; flex-wrap: wrap; gap: 12px; font-size: 12px; color: var(--muted); }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
+.split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
+.tabs { display: flex; gap: 4px; flex-wrap: wrap; }
+.tabs button { border: 1px solid var(--line); background: var(--surface); border-radius: var(--radius); padding: 4px 10px; cursor: pointer; }
+.tabs button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+@media (max-width: 900px) {
+  .app { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+  .nav { flex-direction: row; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--line); padding: 8px; }
+  .nav button { width: auto; white-space: nowrap; }
+  .brand, .nav .foot { display: none; }
+  .split { grid-template-columns: 1fr; }
+  .view { padding: 16px; }
+  input[type="search"] { width: 100%; }
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <nav class="nav" id="nav" aria-label="Разделы">
+    <div class="brand"><b>Testu katalogs</b><span>Centrālā Laboratorija · прототип</span></div>
+    <button data-go="catalog"><span>Каталог</span><span class="badge" id="nb-catalog">—</span></button>
+    <button data-go="export"><span>Отправка в SmartLIS</span><span class="badge" id="nb-export">—</span></button>
+    <button data-go="import"><span>Импорт из SmartLIS</span><span></span></button>
+    <button data-go="site"><span>Сайт (Web JSON)</span><span class="badge" id="nb-site">—</span></button>
+    <button data-go="checks"><span>Проверки</span><span class="badge" id="nb-checks">—</span></button>
+    <button data-go="log"><span>Журнал</span><span></span></button>
+    <button data-go="setup"><span>Настройки</span><span></span></button>
+    <div class="foot" id="navfoot"></div>
+  </nav>
+  <main class="main" id="main">
+    <div id="banner"></div>
+    <section class="view" id="view"><div class="empty">Загружаю каталог…</div></section>
+  </main>
+</div>
+<div id="drawer"></div>
+<div id="modal"></div>
+<div class="toasts" id="toasts" aria-live="polite"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="logic.js"></script>
+<script>
+"use strict";
+/* ================= state ================= */
+const S = {
+  mode: "loading",            // loading | snapshot | live | local
+  fields: DEFAULT_FIELDS.map(f => ({ ...f })),
+  settings: { ...DEFAULT_SETTINGS },
+  dicts: {},
+  tests: new Map(),
+  hist: {},
+  events: [],
+  snapshotInfo: null,
+  perms: { write: true, admin: false, owner: false },
+  me: null,
+  view: "catalog",
+  f: { q: "", section: "", publish: "", catalog: "", order: "", status: "", check: "" },
+  group: false,
+  page: 0,
+  selected: new Set(),
+  openCode: null,
+  edits: {},
+  importPlan: null, importFile: "", importOverride: false,
+  exportOverride: false,
+  excelPlan: null,
+  dictTab: "sampleid",
+  names: {},
+  busy: null,
+};
+const PAGE = 100;
+let db = null, user = null, downloads = null, seedCache = null;
+const subs = { chunks: {}, hist: {} };
+
+const F = () => S.fields;
+const FM = () => fieldMap(S.fields);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const $ = (sel) => document.querySelector(sel);
+
+function disp(k, v) {
+  const f = FM()[k];
+  if (isEmpty(v)) return "—";
+  if (f && f.t === "dict") return dictName(S.dicts, k, v);
+  if (f && f.t === "bool") return norm(v) === "TRUE" ? "Jā" : "Nē";
+  if (f && f.t === "publish") return { TRUE: "Jā", FALSE: "Nē", AKC: "AKC" }[norm(v)] || String(v);
+  if (f && f.price) return Number(norm(v)).toFixed(2);
+  return String(v);
+}
+const fmtTime = (iso) => { if (!iso) return ""; const d = new Date(iso); return isNaN(d) ? String(iso) : d.toLocaleString("lv-LV", { dateStyle: "short", timeStyle: "short" }); };
+const canWrite = () => (S.mode === "live" || S.mode === "local") && S.perms.write;
+// May the current viewer edit this field? Prototype: client-side check; the production app enforces it on the server.
+function canEditField(f) {
+  if (!canWrite()) return false;
+  const lvl = editLevel(f);
+  return lvl === "editor" || (lvl === "admin" && S.perms.admin);
+}
+
+function toast(msg, bad) {
+  const el = document.createElement("div"); el.className = "toast" + (bad ? " bad" : ""); el.textContent = msg;
+  $("#toasts").appendChild(el); setTimeout(() => el.remove(), bad ? 7000 : 3500);
+}
+
+/* ================= derived ================= */
+function statusOf(t) {
+  const out = [];
+  if (Object.keys(conflictsOf(t)).length) out.push(["bad", "Конфликт"]);
+  if (t.meta && t.meta.missing) out.push(["plain", "Нет в SmartLIS"]);
+  const pf = pendingFields(t, F());
+  if (pf.length) out.push(t.meta && t.meta.lastExport ? ["info", "Отправлено, ждёт подтверждения"] : ["acc", "К отправке"]);
+  if (t.meta && t.meta.addedAt && t.meta.lastImport === t.meta.addedAt) out.push(["good", "Новый"]);
+  return out;
+}
+function stripeOf(t) {
+  if (Object.keys(conflictsOf(t)).length) return "bad";
+  if (pendingFields(t, F()).length) return t.meta && t.meta.lastExport ? "info" : "acc";
+  if (t.meta && t.meta.missing) return "warn";
+  return "";
+}
+function counts() {
+  let pending = 0, bad = 0;
+  for (const t of S.tests.values()) { if (pendingFields(t, F()).length) pending++; }
+  for (const c of CHECKS.filter(c => c.sev === "bad")) for (const t of S.tests.values()) if (c.fn(t, F())) bad++;
+  const pub = [...S.tests.values()].filter(t => norm(t.val && t.val.publish) === "TRUE" && !(t.meta && t.meta.missing)).length;
+  return { pending, bad, pub };
+}
+
+function filtered() {
+  const q = S.f.q.trim().toLowerCase();
+  const check = CHECKS.find(c => c.id === S.f.check);
+  const list = [];
+  for (const t of S.tests.values()) {
+    if (q && !(t.code.toLowerCase().includes(q) || String(cv(t, "name") || "").toLowerCase().includes(q))) continue;
+    if (S.f.section && norm(t.sl && t.sl.sectionid) !== S.f.section) continue;
+    if (S.f.publish && (S.f.publish === "EMPTY" ? !isEmpty(t.val && t.val.publish) : norm(t.val && t.val.publish) !== S.f.publish)) continue;
+    if (S.f.catalog && (S.f.catalog === "EMPTY" ? !isEmpty(cv(t, "catalog")) : norm(cv(t, "catalog")) !== S.f.catalog)) continue;
+    if (S.f.order && norm(t.sl && t.sl.order) !== S.f.order) continue;
+    if (S.f.status) {
+      const st = S.f.status;
+      if (st === "pending" && !pendingFields(t, F()).length) continue;
+      if (st === "conflict" && !Object.keys(conflictsOf(t)).length) continue;
+      if (st === "missing" && !(t.meta && t.meta.missing)) continue;
+      if (st === "new" && !(t.meta && t.meta.addedAt && t.meta.lastImport === t.meta.addedAt)) continue;
+    }
+    if (check && !check.fn(t, F())) continue;
+    list.push(t);
+  }
+  const secName = (t) => dictName(S.dicts, "sectionid", t.sl && t.sl.sectionid) || "~";
+  list.sort((a, b) => S.group ? (secName(a).localeCompare(secName(b), "lv") || a.code.localeCompare(b.code)) : a.code.localeCompare(b.code));
+  return list;
+}
+
+/* ================= storage ================= */
+const CHUNK_IDS = Array.from({ length: CHUNKS }, (_, i) => "c" + String(i).padStart(2, "0"));
+
+function rebuildFromChunks() {
+  const m = new Map();
+  for (const id of CHUNK_IDS) {
+    const d = subs.chunks[id]; if (!d || !d.tests) continue;
+    for (const code of Object.keys(d.tests)) { const t = d.tests[code]; if (t) m.set(code, { code, sl: t.sl || {}, val: t.val || {}, base: t.base || {}, meta: t.meta || {} }); }
+  }
+  S.tests = m;
+  const h = {};
+  for (const id of CHUNK_IDS) { const d = subs.hist[id]; if (d && d.h) Object.assign(h, d.h); }
+  S.hist = h;
+}
+
+let renderTimer = null;
+function scheduleRender() { clearTimeout(renderTimer); renderTimer = setTimeout(renderAll, 60); }
+
+async function loadSeed() {
+  if (seedCache) return seedCache;
+  let r = await fetch("seed.json");
+  if (!r.ok) r = await fetch("seed.sample.json");   // repository ships only synthetic sample data
+  seedCache = await r.json(); return seedCache;
+}
+function useSeed(seed, mode) {
+  S.dicts = seed.dicts;
+  S.tests = new Map(seed.tests.map(t => [t.code, JSON.parse(JSON.stringify({ meta: {}, ...t }))]));
+  S.snapshotInfo = { date: seed.snapshotDate, source: seed.source };
+  S.mode = mode;
+}
+
+async function boot() {
+  const timer = setTimeout(async () => { if (S.mode === "loading") { useSeed(await loadSeed(), "local"); renderAll(); } }, 10000);
+  try { db = await claude.use("db"); } catch (e) { db = null; }
+  try { user = await claude.use("user"); } catch (e) { user = null; }
+  try { downloads = await claude.use("downloads"); } catch (e) { downloads = null; }
+  if (user) {
+    try { S.me = await user.id(); } catch (e) {}
+    try { S.perms.owner = !!user.isOwner(); S.perms.admin = !!user.canEdit() || S.perms.owner; const w = user.can("data.write"); S.perms.write = w !== false; } catch (e) {}
+  } else { S.perms.admin = true; }
+  if (!db) { clearTimeout(timer); if (S.mode === "loading") { useSeed(await loadSeed(), "local"); renderAll(); } return; }
+
+  let configSeen = false;
+  db.doc("config/main").onSnapshot(snap => {
+    if (snap.metadata.fromCache && !snap.exists) return;
+    clearTimeout(timer);
+    configSeen = true;
+    if (!snap.exists) {
+      if (S.mode !== "snapshot") loadSeed().then(seed => { useSeed(seed, "snapshot"); renderAll(); });
+      return;
+    }
+    const c = snap.data();
+    if (Array.isArray(c.fields) && c.fields.length) S.fields = c.fields.map(f => ({ ...f }));
+    S.settings = { ...DEFAULT_SETTINGS, ...(c.settings || {}) };
+    S.dicts = c.dicts || {};
+    if (S.mode !== "live") { S.mode = "live"; rebuildFromChunks(); }
+    scheduleRender();
+  }, err => { clearTimeout(timer); toast("Хранилище недоступно: " + err.code + ". Работаю со снимком, правки не сохранятся.", true); loadSeed().then(seed => { useSeed(seed, "local"); renderAll(); }); });
+
+  db.collection("chunks").onSnapshot(snap => {
+    for (const d of snap.docs) subs.chunks[d.id] = d.data();
+    if (S.mode === "live") { rebuildFromChunks(); scheduleRender(); }
+  }, err => toast("Не удалось получить данные тестов: " + err.code, true));
+  db.collection("hist").onSnapshot(snap => {
+    for (const d of snap.docs) subs.hist[d.id] = d.data();
+    if (S.mode === "live") { rebuildFromChunks(); scheduleRender(); }
+  }, () => {});
+  db.collection("events").orderBy("t", "desc").limit(100).onSnapshot(snap => {
+    S.events = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    if (S.view === "log") scheduleRender();
+  }, () => {});
+}
+
+async function withRetry(fn) {
+  try { return await fn(); }
+  catch (e) {
+    if (e && e.code === "unavailable") { await new Promise(r => setTimeout(r, 600 + Math.random() * 600)); return await fn(); }
+    throw e;
+  }
+}
+
+// patches: {code: {sl?, val?, base?, meta?, code?}}; histAdd: {code: [entries]}
+async function commit(patches, histAdd, event) {
+  const codes = Object.keys(patches);
+  if (S.mode === "local") {
+    for (const code of codes) S.tests.set(code, applyPatch(S.tests.get(code) || { code }, patches[code]));
+    for (const code of Object.keys(histAdd || {})) S.hist[code] = (S.hist[code] || []).concat(histAdd[code]).slice(-HIST_CAP);
+    if (event) S.events.unshift({ id: "local" + Date.now(), ...event });
+    renderAll(); return true;
+  }
+  if (S.mode !== "live") { toast("Сначала начните работу с данными (баннер сверху).", true); return false; }
+  const byChunk = {};
+  for (const code of codes) { const c = chunkOf(code); (byChunk[c] = byChunk[c] || {})[code] = patches[code]; }
+  const histByChunk = {};
+  for (const code of Object.keys(histAdd || {})) {
+    const c = chunkOf(code);
+    (histByChunk[c] = histByChunk[c] || {})[code] = (S.hist[code] || []).concat(histAdd[code]).slice(-HIST_CAP);
+  }
+  const chunkIds = [...new Set([...Object.keys(byChunk), ...Object.keys(histByChunk)])];
+  try {
+    let i = 0;
+    for (const c of chunkIds) {
+      setBusy("Сохраняю", i++, chunkIds.length);
+      if (byChunk[c]) await withRetry(() => db.doc("chunks/" + c).update({ tests: byChunk[c] }));
+      if (histByChunk[c]) await withRetry(() => db.doc("hist/" + c).update({ h: histByChunk[c] }));
+    }
+    if (event) await withRetry(() => db.collection("events").add(event));
+    setBusy(null); return true;
+  } catch (e) {
+    setBusy(null);
+    toast(e && e.code === "invalid_argument" ? "Нет прав на изменение данных. Попросите владельца дать вам роль Contributor." : "Не удалось сохранить: " + (e && (e.message || e.code)), true);
+    return false;
+  }
+}
+
+async function initStore(tests, dicts, source) {
+  if (!db) { toast("Хранилище недоступно.", true); return; }
+  const byChunk = {}; for (const id of CHUNK_IDS) byChunk[id] = {};
+  for (const t of tests) byChunk[chunkOf(t.code)][t.code] = { sl: t.sl || {}, val: t.val || {}, base: t.base || {}, meta: { conflicts: {}, ...(t.meta || {}) } };
+  const now = new Date().toISOString();
+  try {
+    let i = 0;
+    for (const id of CHUNK_IDS) { setBusy("Записываю каталог", i++, CHUNK_IDS.length * 2); await withRetry(() => db.doc("chunks/" + id).set({ tests: byChunk[id] })); }
+    for (const id of CHUNK_IDS) { setBusy("Записываю каталог", i++, CHUNK_IDS.length * 2); await withRetry(() => db.doc("hist/" + id).set({ h: {} })); }
+    await withRetry(() => db.doc("config/main").set({ fields: S.fields, settings: S.settings, dicts, initializedAt: now, source }));
+    await withRetry(() => db.collection("events").add({ t: now, u: S.me, kind: "init", title: "Каталог загружен", summary: { tests: tests.length, source } }));
+    setBusy(null); toast(`Каталог загружен: ${tests.length} тестов.`);
+  } catch (e) { setBusy(null); toast("Не удалось записать каталог: " + (e && (e.message || e.code)), true); }
+}
+
+function setBusy(label, i, n) {
+  S.busy = label ? { label, i, n } : null;
+  const el = $("#busy"); if (!el) return;
+  el.innerHTML = S.busy ? `<div class="lbl">${esc(label)}… ${i}/${n}</div><div class="progress"><i style="width:${Math.round(100 * i / Math.max(1, n))}%"></i></div>` : "";
+}
+
+/* ================= names ================= */
+async function resolveNames(ids) {
+  const need = [...new Set(ids.filter(id => id && !(id in S.names)))];
+  if (!need.length || !user || !user.profiles) return;
+  try { const ps = await user.profiles(need); for (const id of need) S.names[id] = (ps && ps[id] && ps[id].name) || ""; scheduleRender(); } catch (e) {}
+}
+const nameOf = (id) => S.names[id] || (id === S.me ? "Вы" : "Пользователь");
+
+/* ================= render: shell ================= */
+function renderAll() {
+  const c = counts();
+  $("#nb-catalog").textContent = S.tests.size;
+  const ne = $("#nb-export"); ne.textContent = c.pending; ne.className = "badge" + (c.pending ? " acc" : "");
+  $("#nb-site").textContent = c.pub;
+  const nc = $("#nb-checks"); nc.textContent = c.bad; nc.className = "badge" + (c.bad ? " bad" : "");
+  document.querySelectorAll("#nav button[data-go]").forEach(b => b.setAttribute("aria-current", b.dataset.go === S.view ? "page" : "false"));
+  const modeText = { live: "Общие данные · сохраняются", snapshot: `Снимок от ${S.snapshotInfo ? S.snapshotInfo.date : ""} · только просмотр`, local: "Без хранилища · правки до перезагрузки", loading: "Загрузка…" }[S.mode];
+  $("#navfoot").innerHTML = `<span>${esc(modeText)}</span><div id="busy"></div>`;
+  renderBanner();
+  const v = { catalog: viewCatalog, export: viewExport, import: viewImport, site: viewSite, checks: viewChecks, log: viewLog, setup: viewSetup }[S.view] || viewCatalog;
+  $("#view").innerHTML = v();
+  const ae = document.activeElement;
+  const typing = ae && ae.closest && ae.closest(".drawer") && ["INPUT", "TEXTAREA", "SELECT"].includes(ae.tagName);
+  if (S.openCode) { if (!typing) renderDrawer(); } else $("#drawer").innerHTML = "";
+  setBusy(S.busy && S.busy.label, S.busy && S.busy.i, S.busy && S.busy.n);
+}
+
+function renderBanner() {
+  const el = $("#banner");
+  if (S.mode === "snapshot") {
+    const can = S.perms.admin;
+    el.innerHTML = `<div class="banner snap"><p><b>Это снимок каталога от ${esc(S.snapshotInfo.date)}.</b> Общие данные ещё не созданы. ${can ? "Начните с этого снимка или перенесите актуальный Excel с SharePoint: после этого правки сохраняются и видны всем, у кого есть доступ." : "Владелец прототипа ещё не загрузил данные; пока доступен только просмотр."}</p>
+      ${can ? `<div class="row"><button class="btn" data-act="go" data-v="import">Перенести из Excel…</button><button class="btn primary" data-act="init-seed">Начать с этого снимка</button></div>` : ""}</div>`;
+  } else if (S.mode === "local") {
+    el.innerHTML = `<div class="banner local"><p><b>Хранилище недоступно.</b> Прототип работает на снимке от ${esc(S.snapshotInfo ? S.snapshotInfo.date : "")}; правки сохранятся только до перезагрузки страницы.</p></div>`;
+  } else el.innerHTML = "";
+}
+
+/* ================= view: catalog ================= */
+function sel(id, label, value, opts) {
+  return `<div class="field"><label for="${id}">${esc(label)}</label><select id="${id}" data-filter="${id.replace("f-", "")}">${opts.map(([v, l]) => `<option value="${esc(v)}"${v === value ? " selected" : ""}>${esc(l)}</option>`).join("")}</select></div>`;
+}
+function viewCatalog() {
+  const list = filtered();
+  const pages = Math.max(1, Math.ceil(list.length / PAGE));
+  if (S.page >= pages) S.page = pages - 1;
+  const slice = list.slice(S.page * PAGE, S.page * PAGE + PAGE);
+  const sections = (S.dicts.sectionid || []).slice().sort((a, b) => String(a[1]).localeCompare(String(b[1]), "lv"));
+  const check = CHECKS.find(c => c.id === S.f.check);
+  const editable = F().filter(f => canEditField(f) && ["publish", "bool", "dict", "text", "num"].includes(f.t) && f.g !== "web");
+  const bulk = S.selected.size ? `<div class="bulk"><b>Выбрано: ${S.selected.size}</b>
+      <select id="bulk-field" aria-label="Поле">${editable.map(f => `<option value="${f.k}">${esc(f.l)}</option>`).join("")}</select>
+      <span id="bulk-value-wrap">${editable.length ? bulkValueInput(editable[0].k) : ""}</span>
+      <button class="btn primary" data-act="bulk-apply"${canWrite() ? "" : " disabled"}>Применить к ${S.selected.size}</button>
+      <button class="btn" data-act="bulk-clear">Снять выделение</button></div>` : "";
+  let rows = "", lastSec = null;
+  for (const t of slice) {
+    if (S.group) {
+      const sec = dictName(S.dicts, "sectionid", t.sl && t.sl.sectionid) || "Без секции";
+      if (sec !== lastSec) { rows += `<tr class="group"><td colspan="10">${esc(sec)}</td></tr>`; lastSec = sec; }
+    }
+    const st = statusOf(t);
+    rows += `<tr class="click" data-open="${esc(t.code)}">
+      <td class="stripe ${stripeOf(t)}"></td>
+      <td><input type="checkbox" data-sel="${esc(t.code)}" aria-label="Выбрать ${esc(t.code)}"${S.selected.has(t.code) ? " checked" : ""}></td>
+      <td class="mono">${esc(t.code)}</td>
+      <td class="name">${esc(cv(t, "name") ?? "")}</td>
+      <td>${esc(disp("sectionid", t.sl.sectionid))}</td>
+      <td>${esc(disp("sampleid", cv(t, "sampleid")))}</td>
+      <td class="num">${esc(disp("fin_price2", cv(t, "fin_price2")))}</td>
+      <td>${pubChip(t.val.publish)}</td>
+      <td>${boolChip(cv(t, "catalog"))}</td>
+      <td>${st.map(([c, l]) => `<span class="chip ${c}">${esc(l)}</span>`).join(" ")}</td></tr>`;
+  }
+  return `<div class="view-head"><div><h2>Каталог анализов</h2><p>${list.length} из ${S.tests.size} тестов. Нажмите на строку, чтобы открыть карточку теста.</p></div>
+    <div class="legend"><span><i style="background:var(--accent)"></i>есть правки к отправке</span><span><i style="background:var(--info)"></i>отправлено, ждёт подтверждения</span><span><i style="background:var(--bad)"></i>конфликт</span><span><i style="background:var(--warn)"></i>нет в SmartLIS</span></div></div>
+  <div class="toolbar">
+    <div class="field"><label for="f-q">Поиск по коду или названию</label><input type="search" id="f-q" value="${esc(S.f.q)}" placeholder="ALT, ferritīns…"></div>
+    ${sel("f-section", "Sekcija", S.f.section, [["", "Все секции"], ...sections.map(([id, n]) => [norm(id), n])])}
+    ${sel("f-publish", "Mājaslapā", S.f.publish, [["", "Все"], ["TRUE", "Jā"], ["FALSE", "Nē"], ["AKC", "AKC"], ["EMPTY", "Не решено"]])}
+    ${sel("f-catalog", "Katalogā", S.f.catalog, [["", "Все"], ["TRUE", "Jā"], ["FALSE", "Nē"], ["EMPTY", "Пусто"]])}
+    ${sel("f-order", "Pasūtāms", S.f.order, [["", "Все"], ["TRUE", "Jā"], ["FALSE", "Nē"]])}
+    ${sel("f-status", "Статус", S.f.status, [["", "Любой"], ["pending", "К отправке"], ["conflict", "Конфликт"], ["missing", "Нет в SmartLIS"], ["new", "Новые"]])}
+    <label class="row" style="padding-bottom:6px"><input type="checkbox" id="f-group"${S.group ? " checked" : ""}> по секциям</label>
+    ${check ? `<span class="chip warn">Проверка: ${esc(check.l)} <button class="btn sm" data-act="clear-check" aria-label="Убрать фильтр проверки">×</button></span>` : ""}
+    ${(S.f.q || S.f.section || S.f.publish || S.f.catalog || S.f.order || S.f.status || S.f.check) ? `<button class="btn" data-act="reset-filters">Сбросить фильтры</button>` : ""}
+  </div>
+  ${bulk}
+  <div class="tablewrap"><table>
+    <thead><tr><th></th><th><input type="checkbox" data-act="sel-page" aria-label="Выбрать страницу"></th><th>Kods</th><th>Testa nosaukums</th><th>Sekcija</th><th>Materiāls</th><th class="num">Cena, €</th><th>Mājaslapā</th><th>Katalogā</th><th>Статус</th></tr></thead>
+    <tbody>${rows || `<tr><td colspan="10" class="empty">Ничего не найдено. Измените фильтры.</td></tr>`}</tbody></table></div>
+  <div class="pager"><span class="muted">${list.length ? `${S.page * PAGE + 1}–${Math.min(list.length, S.page * PAGE + PAGE)} из ${list.length}` : ""}</span>
+    <button class="btn" data-act="page" data-d="-1"${S.page ? "" : " disabled"}>← Назад</button>
+    <button class="btn" data-act="page" data-d="1"${S.page < pages - 1 ? "" : " disabled"}>Вперёд →</button>
+    ${list.length > slice.length ? `<button class="btn" data-act="sel-all" data-n="${list.length}">Выбрать все ${list.length}</button>` : ""}</div>`;
+}
+const pubChip = (v) => { const n = norm(v); return n === "TRUE" ? `<span class="chip good">Jā</span>` : n === "AKC" ? `<span class="chip info">AKC</span>` : n === "FALSE" ? `<span class="chip plain">Nē</span>` : `<span class="chip warn">?</span>`; };
+const boolChip = (v) => { const n = norm(v); return n === "TRUE" ? `<span class="chip good">Jā</span>` : n === "FALSE" ? `<span class="chip plain">Nē</span>` : `<span class="chip bad">пусто</span>`; };
+
+function inputFor(f, value, id, extra) {
+  const cls = extra || "";
+  if (f.t === "bool") return `<select id="${id}" data-edit="${f.k}" class="${cls}"><option value=""${isEmpty(value) ? " selected" : ""}>—</option><option value="TRUE"${norm(value) === "TRUE" ? " selected" : ""}>Jā</option><option value="FALSE"${norm(value) === "FALSE" ? " selected" : ""}>Nē</option></select>`;
+  if (f.t === "publish") return `<select id="${id}" data-edit="${f.k}" class="${cls}"><option value=""${isEmpty(value) ? " selected" : ""}>Не решено</option><option value="TRUE"${norm(value) === "TRUE" ? " selected" : ""}>Jā — общий каталог</option><option value="AKC"${norm(value) === "AKC" ? " selected" : ""}>AKC — акция</option><option value="FALSE"${norm(value) === "FALSE" ? " selected" : ""}>Nē</option></select>`;
+  if (f.t === "dict") {
+    const opts = (S.dicts[f.k] || []).slice().sort((a, b) => String(a[1]).localeCompare(String(b[1]), "lv"));
+    return `<select id="${id}" data-edit="${f.k}" class="${cls}"><option value="">—</option>${opts.map(([v, n]) => `<option value="${esc(norm(v))}"${norm(v) === norm(value) ? " selected" : ""}>${esc(n)} (${esc(v)})</option>`).join("")}</select>`;
+  }
+  if (f.t === "long") return `<textarea id="${id}" data-edit="${f.k}" class="${cls}">${esc(isEmpty(value) ? "" : value)}</textarea>`;
+  return `<input type="text" id="${id}" data-edit="${f.k}" class="${cls}" value="${esc(isEmpty(value) ? "" : value)}">`;
+}
+function bulkValueInput(k) { return inputFor(FM()[k], null, "bulk-value").replace('data-edit=', 'data-bulk='); }
+function readInput(f, raw) {
+  if (raw === "") return null;
+  if (f.t === "bool") return raw === "TRUE";
+  if (f.t === "dict") return Number(raw);
+  if (f.t === "num") { const n = Number(String(raw).replace(",", ".")); return isNaN(n) ? raw : n; }
+  return raw;
+}
+
+/* ================= drawer: test card ================= */
+function renderDrawer() {
+  const t = S.tests.get(S.openCode);
+  if (!t) { S.openCode = null; $("#drawer").innerHTML = ""; return; }
+  const ed = S.edits;
+  const cur = (k) => (k in ed ? ed[k] : cv(t, k));
+  const fm = FM();
+  const conf = conflictsOf(t);
+  const published = norm(cur("publish")) === "TRUE";
+  const missWeb = published ? F().filter(f => f.wreq && isEmpty(cur(f.k))).map(f => f.k) : [];
+  const ro = !canWrite();
+  const kv = (fs) => `<div class="kv">${fs.map(f => `<div><span class="lbl">${esc(f.l)}</span><span class="v ${["code", "labcode", "govcode", "loinccode", "template"].includes(f.k) ? "mono" : ""}">${esc(disp(f.k, valueOf(t, f)))}</span></div>`).join("")}</div>`;
+  const formField = (f) => {
+    const v = cur(f.k);
+    const isDirty = f.k in ed;
+    const cls = (isDirty ? "dirty" : "") + (missWeb.includes(f.k) ? " miss" : "");
+    const can = canEditField(f);
+    const lvl = editLevel(f);
+    const slDiff = isSl(f) && hasOwn(t.val, f.k) && !same(t.val[f.k], t.sl[f.k]) && !conf[f.k];
+    const mono = ["labcode", "govcode", "loinccode", "template"].includes(f.k) ? " mono" : "";
+    const tag = isSl(f) && lvl !== "none" ? ` <span class="chip plain" title="Правка уходит в SmartLIS">↔ SmartLIS${lvl === "admin" ? " · админ" : ""}</span>` : "";
+    return `<div class="field ${f.t === "long" ? "wide" : ""}"><label for="e-${f.k}">${esc(f.l)}${tag}</label>
+      ${can ? inputFor(f, v, "e-" + f.k, cls) : `<div class="v${mono}">${esc(disp(f.k, v))}</div>`}
+      ${slDiff ? `<span class="hint">В SmartLIS сейчас: ${esc(disp(f.k, t.sl[f.k]))}. Уйдёт при следующей отправке.</span>` : ""}
+      ${missWeb.includes(f.k) ? `<span class="hint">Нужно для публикации на сайте</span>` : ""}</div>`;
+  };
+  const slFields = F().filter(f => isSl(f) && f.g === "smartlis" && !["template_code", "template_name", "template", "launch"].includes(f.k));
+  const prices = F().filter(f => f.price);
+  const editMain = F().filter(f => !isSl(f) && f.g !== "web");
+  const editWeb = F().filter(f => !isSl(f) && f.g === "web");
+  const tc = String(t.sl.template_code || "").split("|").filter(Boolean);
+  const tn = String(t.sl.template_name || "").split(" | ");
+  const launch = String(t.sl.launch || "").split(",").filter(Boolean);
+  const hist = (S.hist[t.code] || []).slice().reverse();
+  resolveNames(hist.map(h => h.u));
+  const nDirty = Object.keys(ed).length;
+  const kindL = { edit: "правка", import: "из SmartLIS", export: "отправлено", bulk: "массовая правка", resolve: "конфликт решён" };
+  $("#drawer").innerHTML = `<div class="drawer-back" data-act="close"></div>
+  <aside class="drawer" role="dialog" aria-label="Карточка теста ${esc(t.code)}">
+    <header><div style="display:grid;gap:4px"><span class="mono" style="font-size:15px;font-weight:600">${esc(t.code)}</span><h3>${esc(cur("name") || "")}</h3>
+      <div class="row">${statusOf(t).map(([c, l]) => `<span class="chip ${c}">${esc(l)}</span>`).join("")}${pubChip(cur("publish"))}</div></div>
+      <button class="btn" data-act="close" aria-label="Закрыть">✕</button></header>
+    <div class="body">
+      ${Object.keys(conf).map(k => `<div class="conflict"><b>Конфликт: ${esc(fm[k] ? fm[k].l : k)}</b>
+        <span>В каталоге: <b>${esc(disp(k, t.val[k]))}</b> · в SmartLIS: <b>${esc(disp(k, conf[k].theirs))}</b> · было при последней синхронизации: ${esc(disp(k, t.base[k]))}</span>
+        <div class="row"><button class="btn" data-act="resolve" data-k="${k}" data-how="ours"${ro ? " disabled" : ""}>Оставить значение каталога (уйдёт в SmartLIS)</button>
+        <button class="btn" data-act="resolve" data-k="${k}" data-how="theirs"${ro ? " disabled" : ""}>Принять значение SmartLIS</button></div></div>`).join("")}
+      <div class="card"><h3>Каталог</h3><div class="form">${editMain.map(formField).join("")}</div></div>
+      <div class="card"><h3>Сайт${published ? "" : ' <span class="chip plain">тест не публикуется</span>'}</h3><div class="form">${editWeb.map(formField).join("")}</div></div>
+      <div class="card"><h3>Данные SmartLIS</h3><div class="form">${slFields.map(formField).join("")}</div>
+        <span class="lbl">Поля с пометкой ↔ SmartLIS можно править: изменение уйдёт в SmartLIS при отправке. Остальные меняются только в SmartLIS.</span></div>
+      <div class="card"><h3>Цены, EUR</h3><div class="form">${prices.map(formField).join("")}</div>
+        <span class="lbl">На сайт уходит ${norm(cur("publish")) === "AKC" ? "Pašreizējā cena и Cena ar atlaidi (акция)" : "только Pašreizējā cena"}.</span></div>
+      ${tc.length || launch.length ? `<div class="card"><h3>Состав</h3>
+        ${tc.length ? `<table><thead><tr><th>Kods</th><th>Nosaukums</th></tr></thead><tbody>${tc.map((c, i) => `<tr><td class="mono">${esc(c)}</td><td>${esc(tn[i] || "")}</td></tr>`).join("")}</tbody></table>` : ""}
+        ${launch.length ? `<div><span class="lbl">Launch</span><div class="mono">${esc(launch.join(", "))}</div></div>` : ""}</div>` : ""}
+      <div class="card"><h3>История</h3>${hist.length ? `<div class="hist">${hist.map(h => `<div><span class="muted">${esc(fmtTime(h.t))}</span><span>${h.f ? `<b>${esc(fm[h.f] ? fm[h.f].l : h.f)}</b>: ${esc(disp(h.f, h.o))} → ${esc(disp(h.f, h.n))}` : esc(h.note || "")} <span class="chip plain">${esc(kindL[h.k] || h.k)}</span> <span class="muted">${esc(h.u ? nameOf(h.u) : "SmartLIS")}</span></span></div>`).join("")}</div>` : `<span class="muted">Изменений в прототипе пока не было.</span>`}</div>
+    </div>
+    <footer><span class="muted">${ro ? (S.mode === "snapshot" ? "Снимок: редактирование после начала работы с данными" : "Только просмотр") : nDirty ? `Изменено полей: ${nDirty}` : "Нет несохранённых изменений"}</span>
+      <div class="row"><button class="btn" data-act="discard"${nDirty ? "" : " disabled"}>Отменить</button><button class="btn primary" data-act="save"${nDirty && !ro ? "" : " disabled"}>Сохранить</button></div></footer>
+  </aside>`;
+}
+
+async function saveCard() {
+  const t = S.tests.get(S.openCode); if (!t) return;
+  const fm = FM(); const now = new Date().toISOString();
+  const patch = { val: {} }; const hist = [];
+  for (const k of Object.keys(S.edits)) {
+    const v = S.edits[k];
+    if (fm[k] && fm[k].req && v === null) { toast(`Поле «${fm[k].l}» нельзя оставить пустым.`, true); return; }
+    const before = cv(t, k);
+    if (same(v, before) && typeof v === typeof before) continue;
+    if (!canEditField(fm[k])) { toast(`Нет прав менять «${fm[k].l}».`, true); return; }
+    patch.val[k] = v;
+    if (isSl(fm[k]) && !hasOwn(t.base, k)) { patch.base = patch.base || {}; patch.base[k] = t.sl[k] ?? null; }
+    hist.push({ t: now, u: S.me, k: "edit", f: k, o: before ?? null, n: v });
+  }
+  if (!hist.length) { S.edits = {}; renderDrawer(); return; }
+  if (await commit({ [t.code]: patch }, { [t.code]: hist })) { S.edits = {}; toast("Сохранено."); renderDrawer(); }
+}
+
+async function resolveConflict(k, how) {
+  const t = S.tests.get(S.openCode); if (!t) return;
+  const c = conflictsOf(t)[k]; if (!c) return;
+  const now = new Date().toISOString();
+  const patch = { base: { [k]: c.theirs }, meta: { conflicts: { [k]: null } } };
+  if (how === "theirs") patch.val = { [k]: c.theirs };
+  const h = { t: now, u: S.me, k: "resolve", f: k, o: t.val[k] ?? null, n: how === "theirs" ? c.theirs : t.val[k] };
+  if (await commit({ [t.code]: patch }, { [t.code]: [h] })) toast(how === "theirs" ? "Принято значение SmartLIS." : "Оставлено значение каталога; оно в очереди на отправку.");
+}
+
+async function bulkApply() {
+  const k = $("#bulk-field").value; const f = FM()[k];
+  const raw = $("#bulk-value").value; const v = readInput(f, raw);
+  if (f.req && v === null) { toast(`«${f.l}» нельзя сделать пустым.`, true); return; }
+  const codes = [...S.selected].filter(c => S.tests.has(c));
+  const changed = codes.filter(c => !(same(cv(S.tests.get(c), k), v)));
+  const ok = await ask(`Изменить «${f.l}» на «${disp(k, v)}» у ${changed.length} тестов?`, changed.length ? `${codes.length - changed.length} из выбранных уже имеют это значение.` : "У всех выбранных тестов уже это значение.", "Изменить");
+  if (!ok || !changed.length) return;
+  const now = new Date().toISOString(); const patches = {}, hist = {};
+  for (const c of changed) {
+    const t = S.tests.get(c);
+    patches[c] = { val: { [k]: v } };
+    if (isSl(f) && !hasOwn(t.base, k)) patches[c].base = { [k]: t.sl[k] ?? null };
+    hist[c] = [{ t: now, u: S.me, k: "bulk", f: k, o: cv(t, k) ?? null, n: v }];
+  }
+  if (await commit(patches, hist, { t: now, u: S.me, kind: "bulk", title: `Массовая правка: ${f.l} → ${disp(k, v)}`, summary: { field: k, value: v, tests: changed.length }, codes: changed.slice(0, 1000) })) {
+    S.selected.clear(); toast(`Изменено тестов: ${changed.length}.`); renderAll();
+  }
+}
+
+/* ================= view: export ================= */
+function viewExport() {
+  const p = planExport(S.tests, F(), S.settings);
+  S._export = p;
+  const conflicts = [...S.tests.values()].filter(t => Object.keys(conflictsOf(t)).length).length;
+  const json = JSON.stringify({ tests: p.tests }, null, 2);
+  const blocked = p.nullRequired.length > 0 || (p.mass.length > 0 && !S.exportOverride);
+  const fm = FM();
+  return `<div class="view-head"><div><h2>Отправка в SmartLIS</h2><p>Здесь собраны правки каталога, которых ещё нет в SmartLIS: поля, которые ведутся с обеих сторон. Правка уходит из списка, когда очередной импорт из SmartLIS покажет то же значение.</p></div></div>
+  <div class="tiles">
+    <div class="tile acc"><b>${p.tests.length}</b><span>тестов к отправке</span></div>
+    ${Object.keys(p.byField).map(k => `<div class="tile"><b>${p.byField[k]}</b><span>${esc(fm[k] ? fm[k].l : k)}</span></div>`).join("")}
+    <div class="tile ${conflicts ? "bad" : ""}"><b>${conflicts}</b><span>с конфликтом (не отправляются)</span></div>
+    <div class="tile info"><b>${p.items.filter(i => i.sentBefore).length}</b><span>полей уже отправлялись, ждут подтверждения</span></div>
+  </div>
+  ${p.nullRequired.length ? `<div class="alert bad"><b>Отправка заблокирована: пустое значение в обязательном поле</b><span>${p.nullRequired.length} шт.: ${esc(p.nullRequired.slice(0, 15).join(", "))}${p.nullRequired.length > 15 ? "…" : ""}. Заполните их в карточках тестов.</span></div>` : ""}
+  ${p.mass.length ? `<div class="alert warn"><b>Массовое изменение</b><span>${p.mass.map(m => `${esc(fm[m.f] ? fm[m.f].l : m.f)}: ${m.n} тестов`).join("; ")} — больше порога ${S.settings.massLimit}. Обычно это значит, что импорт был неполным. Если изменение осознанное, подтвердите.</span>
+    <label class="row"><input type="checkbox" id="export-override"${S.exportOverride ? " checked" : ""}> Я проверил(а), это осознанное массовое изменение</label></div>` : ""}
+  <div class="row">
+    <button class="btn" data-act="copy-json" data-what="export"${p.tests.length && !blocked ? "" : " disabled"}>Скопировать JSON</button>
+    ${downloads ? `<button class="btn" data-act="dl-json" data-what="export"${p.tests.length && !blocked ? "" : " disabled"}>Скачать JSON</button>` : ""}
+    <button class="btn primary" data-act="mark-sent"${p.tests.length && !blocked && canWrite() ? "" : " disabled"}>Отметить как отправленное</button>
+    <span class="muted">Формат совпадает с телом запроса bulk_update. Справочные поля пока идут как ID SmartLIS (как в File processor); для SmartComm API понадобятся коды.</span>
+  </div>
+  <div class="split">
+    <div class="tablewrap" style="max-height:480px;overflow:auto"><table><thead><tr><th>Kods</th><th>Поле</th><th>В SmartLIS</th><th>В каталоге (уйдёт)</th><th></th></tr></thead>
+      <tbody>${p.items.slice(0, 500).map(i => `<tr class="click" data-open="${esc(i.code)}"><td class="mono">${esc(i.code)}</td><td>${esc(fm[i.f] ? fm[i.f].l : i.f)}</td><td>${esc(disp(i.f, i.smartlis))}</td><td><b>${esc(disp(i.f, i.catalog))}</b></td><td>${i.sentBefore ? '<span class="chip info">отправлялось</span>' : ""}</td></tr>`).join("") || `<tr><td colspan="5" class="empty">Отправлять нечего: каталог совпадает со SmartLIS.</td></tr>`}</tbody></table></div>
+    <div class="field"><span class="lbl">JSON для SmartLIS</span><pre class="json">${esc(json.length > 20000 ? json.slice(0, 20000) + "\n…" : json)}</pre></div>
+  </div>`;
+}
+
+async function markSent() {
+  const p = S._export; if (!p || !p.tests.length) return;
+  const ok = await ask(`Отметить ${p.tests.length} тестов как отправленные?`, "Нажимайте после того, как JSON загружен в SmartLIS. Тесты останутся в списке со статусом «ждёт подтверждения», пока импорт из SmartLIS не покажет те же значения.", "Отметить");
+  if (!ok) return;
+  const now = new Date().toISOString(); const id = now.replace(/[-:TZ.]/g, "").slice(0, 14);
+  const patches = {}, hist = {};
+  for (const r of p.tests) {
+    patches[r.code] = { meta: { lastExport: { id, t: now } } };
+    hist[r.code] = Object.keys(r).filter(k => k !== "code").map(k => ({ t: now, u: S.me, k: "export", f: k, o: S.tests.get(r.code).sl[k] ?? null, n: S.tests.get(r.code).val[k] ?? null }));
+  }
+  if (await commit(patches, hist, { t: now, u: S.me, kind: "export", title: `Отправка в SmartLIS, пакет ${id}`, summary: { tests: p.tests.length, fields: p.byField }, codes: p.tests.map(r => r.code).slice(0, 1000) })) toast(`Пакет ${id} отмечен как отправленный.`);
+}
+
+/* ================= view: import ================= */
+function viewImport() {
+  const p = S.importPlan; const fm = FM();
+  const kindL = { smartlis: "обновлено из SmartLIS", take: "принято из SmartLIS" };
+  let planHtml = "";
+  if (p) {
+    const blocked = p.errors.length > 0 || (p.massCleared.length > 0 && !S.importOverride);
+    planHtml = `<div class="card"><div class="row" style="justify-content:space-between"><h3>Что изменится: ${esc(S.importFile)}</h3><button class="btn" data-act="import-cancel">Отменить</button></div>
+      ${p.errors.length ? `<div class="alert bad"><b>Импорт невозможен</b><ul>${p.errors.slice(0, 12).map(e => `<li>${esc(e)}</li>`).join("")}</ul></div>` : ""}
+      ${p.massCleared.length ? `<div class="alert bad"><b>Поля очистятся у слишком многих тестов</b><span>${p.massCleared.map(m => `${esc(fm[m.f] ? fm[m.f].l : m.f)}: ${m.n} (порог ${m.limit})`).join("; ")}. Так бывает, когда колонки в файле съехали или заголовки старые.</span>
+        <label class="row"><input type="checkbox" id="import-override"${S.importOverride ? " checked" : ""}> Я проверил(а) файл, очистка ожидаемая</label></div>` : ""}
+      <div class="tiles">
+        <div class="tile"><b>${p.rowsCount}</b><span>тестов в файле</span></div>
+        <div class="tile good"><b>${p.newTests.length}</b><span>новых тестов</span></div>
+        <div class="tile acc"><b>${p.changes.length}</b><span>изменённых значений</span></div>
+        <div class="tile ${p.conflicts.length ? "bad" : ""}"><b>${p.conflicts.length}</b><span>конфликтов</span></div>
+        <div class="tile info"><b>${p.converged.length}</b><span>отправленных правок подтверждено</span></div>
+        <div class="tile ${p.missing.length ? "warn" : ""}"><b>${p.missing.length}</b><span>пропали из SmartLIS</span></div>
+      </div>
+      ${Object.keys(p.byField).length ? `<div class="row">${Object.keys(p.byField).map(k => `<span class="chip plain">${esc(fm[k] ? fm[k].l : k)}: ${p.byField[k]}</span>`).join("")}</div>` : ""}
+      ${(p.skippedInactive || p.absentFields.length || p.unknownHeaders.length || p.unknownIds.length) ? `<div class="alert info">
+        ${p.skippedInactive ? `<span>Пропущено неактивных тестов (active = FALSE): ${p.skippedInactive}. В каталог попадают только активные.</span>` : ""}
+        ${p.absentFields.length ? `<span>Нет в файле, не обновляются: ${esc(p.absentFields.join(", "))}</span>` : ""}
+        ${p.unknownHeaders.length ? `<span>Колонки не используются: ${esc(p.unknownHeaders.join(", "))}</span>` : ""}
+        ${p.unknownIds.length ? `<span>ID, которых нет в справочниках: ${esc(p.unknownIds.join("; "))}</span>` : ""}</div>` : ""}
+      ${p.conflicts.length ? `<div><span class="lbl">Конфликты: значение изменили и в каталоге, и в SmartLIS. Никто ничего не перезапишет, решите в карточке теста.</span>
+        <div class="tablewrap"><table><thead><tr><th>Kods</th><th>Поле</th><th>Каталог</th><th>SmartLIS</th></tr></thead><tbody>${p.conflicts.slice(0, 100).map(c => `<tr><td class="mono">${esc(c.code)}</td><td>${esc(fm[c.f] ? fm[c.f].l : c.f)}</td><td>${esc(disp(c.f, c.ours))}</td><td>${esc(disp(c.f, c.theirs))}</td></tr>`).join("")}</tbody></table></div></div>` : ""}
+      ${p.changes.length ? `<div class="tablewrap" style="max-height:360px;overflow:auto"><table><thead><tr><th>Kods</th><th>Поле</th><th>Было</th><th>Станет</th><th></th></tr></thead><tbody>
+        ${p.changes.slice(0, 400).map(c => `<tr><td class="mono">${esc(c.code)}</td><td>${esc(fm[c.f] ? fm[c.f].l : c.f)}</td><td>${esc(disp(c.f, c.old))}</td><td>${esc(disp(c.f, c.new))}</td><td><span class="chip plain">${esc(kindL[c.kind])}</span></td></tr>`).join("")}</tbody></table></div>` : ""}
+      ${p.newTests.length ? `<span class="lbl">Новые: ${esc(p.newTests.slice(0, 40).join(", "))}${p.newTests.length > 40 ? "…" : ""}</span>` : ""}
+      ${p.missing.length ? `<span class="lbl">Пропали из SmartLIS (останутся в каталоге с пометкой): ${esc(p.missing.slice(0, 40).join(", "))}${p.missing.length > 40 ? "…" : ""}</span>` : ""}
+      <div class="row"><button class="btn primary" data-act="import-apply"${blocked || !canWrite() ? " disabled" : ""}>Применить импорт</button>
+        ${!canWrite() ? `<span class="muted">${S.mode === "snapshot" ? "Сначала начните работу с данными (баннер сверху)." : "Нет прав на изменение."}</span>` : ""}</div></div>`;
+  }
+  const ex = S.excelPlan;
+  return `<div class="view-head"><div><h2>Импорт из SmartLIS</h2><p>Загрузите выгрузку тестов из SmartLIS: CSV в UTF-8 или Excel, первая строка — заголовки (code, name, …). Сначала вы увидите, что изменится; ничего не записывается до кнопки «Применить».</p></div></div>
+  <label class="drop" id="drop-import" for="file-import"><b>Перетащите файл сюда или нажмите, чтобы выбрать</b><span class="muted">.csv (UTF-8) или .xlsx · поля SmartLIS обновятся, правки каталога сохранятся</span>
+    <input type="file" id="file-import" accept=".csv,.xlsx,.xls" hidden></label>
+  ${planHtml}
+  <div class="card"><h3>Перенос из Excel (SharePoint)</h3>
+    <p class="muted" style="margin:0">Разовый перенос текущего файла Laboratorija_Pricelist_SSoT.xlsx: листы Catalog, Dictionary и DB_Import. ${S.mode === "live" ? "Заменит все данные прототипа." : "Создаст общие данные прототипа."}</p>
+    ${S.perms.admin ? `<label class="drop" for="file-excel"><b>Выбрать Excel-файл каталога</b><input type="file" id="file-excel" accept=".xlsx" hidden></label>` : `<span class="muted">Доступно владельцу прототипа.</span>`}
+    ${ex ? `${ex.errors.length ? `<div class="alert bad"><ul>${ex.errors.map(e => `<li>${esc(e)}</li>`).join("")}</ul></div>` : `<div class="alert info"><b>Готово к переносу: ${ex.tests.length} тестов, справочников: ${Object.keys(ex.dicts).length}</b>${ex.warnings.length ? `<span>${esc(ex.warnings.slice(0, 8).join(" · "))}${ex.warnings.length > 8 ? ` …и ещё ${ex.warnings.length - 8}` : ""}</span>` : ""}</div>
+      <div class="row"><button class="btn primary" data-act="excel-apply">${S.mode === "live" ? "Заменить данные прототипа" : "Перенести"}</button><button class="btn" data-act="excel-cancel">Отменить</button></div>`}` : ""}
+  </div>`;
+}
+
+function sheetRows(wb, name) {
+  const key = wb.SheetNames.find(n => n.toLowerCase() === name.toLowerCase());
+  return key ? XLSX.utils.sheet_to_json(wb.Sheets[key], { header: 1, raw: true, defval: null }) : null;
+}
+async function readImportFile(file) {
+  const buf = await file.arrayBuffer();
+  let rows;
+  if (/\.xlsx?$/i.test(file.name)) {
+    if (typeof XLSX === "undefined") { toast("Не загрузилась библиотека для Excel. Сохраните выгрузку как CSV (UTF-8).", true); return; }
+    const wb = XLSX.read(buf, { type: "array" });
+    rows = sheetRows(wb, "DB_Import") || XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, raw: true, defval: null });
+  } else {
+    const d = decodeUtf8(new Uint8Array(buf));
+    if (d.error) { S.importPlan = { errors: [d.error], warnings: [], newTests: [], changes: [], conflicts: [], converged: [], missing: [], byField: {}, cleared: {}, massCleared: [], unknownHeaders: [], absentFields: [], unknownIds: [], rowsCount: 0, patches: {} }; S.importFile = file.name; renderAll(); return; }
+    rows = parseCsv(d.text);
+  }
+  S.importFile = file.name; S.importOverride = false;
+  S.importPlan = planImport(rows, S.tests, F(), S.dicts, S.settings);
+  renderAll();
+}
+async function applyImport() {
+  const p = S.importPlan; if (!p) return;
+  const now = new Date().toISOString();
+  const hist = {};
+  for (const c of p.changes) (hist[c.code] = hist[c.code] || []).push({ t: now, u: null, k: "import", f: c.f, o: c.old ?? null, n: c.new ?? null });
+  for (const c of p.newTests) hist[c] = [{ t: now, u: null, k: "import", note: "Тест добавлен из SmartLIS" }];
+  for (const c of p.conflicts) (hist[c.code] = hist[c.code] || []).push({ t: now, u: null, k: "import", note: `Конфликт по полю ${c.f}` });
+  const patches = {};
+  for (const code of Object.keys(p.patches)) { const pt = { ...p.patches[code] }; delete pt._new; patches[code] = pt; }
+  const ok = await commit(patches, hist, { t: now, u: S.me, kind: "import", title: `Импорт из SmartLIS: ${S.importFile}`, summary: { rows: p.rowsCount, new: p.newTests.length, changes: p.changes.length, conflicts: p.conflicts.length, confirmed: p.converged.length, missing: p.missing.length } });
+  if (ok) { toast(`Импорт применён: новых ${p.newTests.length}, изменений ${p.changes.length}, конфликтов ${p.conflicts.length}.`); S.importPlan = null; renderAll(); }
+}
+async function readExcel(file) {
+  if (typeof XLSX === "undefined") { toast("Не загрузилась библиотека для Excel.", true); return; }
+  const wb = XLSX.read(await file.arrayBuffer(), { type: "array" });
+  const sheets = { Catalog: sheetRows(wb, "Catalog"), Dictionary: sheetRows(wb, "Dictionary"), DB_Import: sheetRows(wb, "DB_Import") };
+  S.excelPlan = buildFromExcel(sheets, F());
+  renderAll();
+}
+async function applyExcel() {
+  const ex = S.excelPlan; if (!ex || ex.errors.length) return;
+  if (S.mode === "live") { const ok = await ask("Заменить все данные прототипа?", "Каталог, история изменений тестов и справочники будут перезаписаны данными из Excel. Журнал событий сохранится.", "Заменить"); if (!ok) return; }
+  if (S.mode === "local") { S.dicts = ex.dicts; S.tests = new Map(ex.tests.map(t => [t.code, t])); S.excelPlan = null; renderAll(); toast("Перенесено (без сохранения: хранилище недоступно)."); return; }
+  await initStore(ex.tests, ex.dicts, "Excel: " + new Date().toISOString().slice(0, 10));
+  S.excelPlan = null; S.mode = "live"; renderAll();
+}
+
+/* ================= view: site ================= */
+function viewSite() {
+  const json = buildWebJson(S.tests, F(), S.dicts, S.settings);
+  S._web = json;
+  const all = [...S.tests.values()].filter(t => !(t.meta && t.meta.missing));
+  const pub = all.filter(t => norm(t.val.publish) === "TRUE");
+  const akc = all.filter(t => norm(t.val.publish) === "AKC");
+  const incomplete = pub.filter(t => missingWebContent(t, F()).length);
+  const text = JSON.stringify(json, null, 2);
+  return `<div class="view-head"><div><h2>Сайт (Web JSON)</h2><p>Файл для Strapi. Попадают тесты с «Mājaslapā = Jā»; акции AKC собираются в отдельный массив promotions и пока выключены.</p></div></div>
+  <div class="tiles">
+    <div class="tile good"><b>${pub.length}</b><span>тестов на сайте</span></div>
+    <div class="tile ${incomplete.length ? "warn" : ""}"><b>${incomplete.length}</b><span>из них без нужных текстов</span></div>
+    <div class="tile info"><b>${akc.length}</b><span>акций AKC ${S.settings.includeAkc ? "в выгрузке" : "(выключены)"}</span></div>
+  </div>
+  <div class="card"><h3>Какие цены уходят на сайт</h3>
+    <table><thead><tr><th>Публикация</th><th>Pašreizējā cena (fin_price2)</th><th>Cena ar atlaidi (fin_cost1)</th><th>NVD cena, Vecā cena</th></tr></thead>
+    <tbody><tr><td>Jā — общий каталог</td><td>да</td><td>—</td><td>никогда</td></tr><tr><td>AKC — акция</td><td>да</td><td>да</td><td>никогда</td></tr></tbody></table>
+    <label class="row"><input type="checkbox" id="set-akc"${S.settings.includeAkc ? " checked" : ""}${S.perms.admin && canWrite() ? "" : " disabled"}> Включать акции AKC (массив promotions)</label></div>
+  <div class="row">
+    <button class="btn" data-act="copy-json" data-what="web">Скопировать JSON</button>
+    ${downloads ? `<button class="btn primary" data-act="dl-json" data-what="web">Скачать JSON</button>` : ""}
+    ${incomplete.length ? `<button class="btn" data-act="go-check" data-c="web-missing">Показать тесты без текстов</button>` : ""}
+  </div>
+  <pre class="json">${esc(text.length > 30000 ? text.slice(0, 30000) + "\n…" : text)}</pre>`;
+}
+
+/* ================= view: checks ================= */
+function viewChecks() {
+  const list = CHECKS.map(c => ({ ...c, n: [...S.tests.values()].filter(t => c.fn(t, F())).length }));
+  const dd = dictDuplicates(S.dicts); const sd = seoDuplicates(S.tests);
+  return `<div class="view-head"><div><h2>Проверки</h2><p>Правила качества каталога. Нажмите «Показать», чтобы открыть эти тесты в каталоге и исправить.</p></div></div>
+  <div class="checklist">${list.map(c => `<div class="check"><span class="sev ${c.sev}"></span><span>${esc(c.l)}</span><b>${c.n}</b><button class="btn sm" data-act="go-check" data-c="${c.id}"${c.n ? "" : " disabled"}>Показать</button></div>`).join("")}
+    <div class="check"><span class="sev ${dd.length ? "bad" : "info"}"></span><span>Дубли в справочниках: одно название у разных ID${dd.length ? `<br><span class="muted">${dd.map(d => `${esc(d.field)}: «${esc(d.name)}» = ${d.ids.join(", ")}`).join("; ")}</span>` : ""}</span><b>${dd.length}</b><button class="btn sm" data-act="go" data-v="setup">Справочники</button></div>
+    <div class="check"><span class="sev ${sd.length ? "warn" : "info"}"></span><span>Одинаковый SEO URL у разных тестов${sd.length ? `<br><span class="muted">${sd.slice(0, 10).map(d => `${esc(d.url)}: ${esc(d.codes.join(", "))}`).join("; ")}</span>` : ""}</span><b>${sd.length}</b><span></span></div>
+  </div>`;
+}
+
+/* ================= view: log ================= */
+function viewLog() {
+  resolveNames(S.events.map(e => e.u));
+  const kindL = { init: ["acc", "загрузка"], import: ["info", "импорт"], export: ["good", "отправка"], bulk: ["warn", "массовая правка"], settings: ["plain", "настройки"] };
+  const sum = (e) => {
+    const s = e.summary || {};
+    if (e.kind === "import") return `в файле ${s.rows}, новых ${s.new}, изменений ${s.changes}, конфликтов ${s.conflicts}, подтверждено отправок ${s.confirmed}, пропало ${s.missing}`;
+    if (e.kind === "export") return `тестов ${s.tests}; ${Object.entries(s.fields || {}).map(([k, n]) => `${k}: ${n}`).join(", ")}`;
+    if (e.kind === "bulk") return `тестов ${s.tests}`;
+    if (e.kind === "init") return `тестов ${s.tests} · ${s.source || ""}`;
+    return "";
+  };
+  return `<div class="view-head"><div><h2>Журнал</h2><p>Импорты, отправки, массовые правки и загрузки каталога. История отдельных полей — в карточке теста.</p></div></div>
+  <div class="tablewrap"><table><thead><tr><th>Когда</th><th>Кто</th><th>Что</th><th>Подробности</th></tr></thead><tbody>
+  ${S.events.map(e => `<tr><td class="muted" style="white-space:nowrap">${esc(fmtTime(e.t))}</td><td>${esc(e.u ? nameOf(e.u) : "—")}</td><td><span class="chip ${(kindL[e.kind] || ["plain"])[0]}">${esc((kindL[e.kind] || ["plain", e.kind])[1])}</span> ${esc(e.title || "")}</td><td class="muted">${esc(sum(e))}</td></tr>`).join("") || `<tr><td colspan="4" class="empty">${S.mode === "live" ? "Событий пока нет." : "Журнал появится после начала работы с общими данными."}</td></tr>`}
+  </tbody></table></div>`;
+}
+
+/* ================= view: setup ================= */
+function viewSetup() {
+  const adm = S.perms.admin && canWrite();
+  const dicts = Object.keys(S.dicts);
+  if (!dicts.includes(S.dictTab)) S.dictTab = dicts[0] || "";
+  const dupIds = new Set(dictDuplicates(S.dicts).filter(d => d.field === S.dictTab).flatMap(d => d.ids.map(String)));
+  return `<div class="view-head"><div><h2>Настройки</h2><p>Реестр полей решает, кто владеет полем, что уходит на сайт и что сверяется со SmartLIS. ${adm ? "" : "Менять может владелец или редактор прототипа."}</p></div></div>
+  <div class="card"><h3>Реестр полей</h3>
+    <div class="tablewrap"><table><thead><tr><th>Поле</th><th>Ключ</th><th>Источник</th><th>Кто может править</th><th>На сайт</th><th>Обязательно для сайта</th></tr></thead><tbody>
+    ${F().map((f, i) => `<tr><td>${esc(f.l)}</td><td class="mono">${esc(f.k)}</td>
+      <td>${isSl(f) ? "SmartLIS" : "Каталог"}</td>
+      <td>${adm ? `<select data-fset="${i}" data-p="e" aria-label="Кто может править ${esc(f.k)}">${Object.entries(EDIT_LABEL).filter(([v]) => isSl(f) || v !== "none").map(([v, l]) => `<option value="${v}"${editLevel(f) === v ? " selected" : ""}>${l}</option>`).join("")}</select>` : esc(EDIT_LABEL[editLevel(f)])}</td>
+      <td>${f.price ? '<span class="muted">по правилу цен</span>' : `<input type="checkbox" data-fset="${i}" data-p="web" aria-label="На сайт ${esc(f.k)}"${f.web ? " checked" : ""}${adm ? "" : " disabled"}>`}</td>
+      <td>${f.g === "web" ? `<input type="checkbox" data-fset="${i}" data-p="wreq" aria-label="Обязательно ${esc(f.k)}"${f.wreq ? " checked" : ""}${adm ? "" : " disabled"}>` : ""}</td></tr>`).join("")}
+    </tbody></table></div>
+    <div class="alert info"><span><b>Источник SmartLIS</b>: значение приходит при импорте. Если поле разрешено править, правка уходит в SmartLIS, а при следующем импорте сравниваются три значения (каталог, SmartLIS, последняя синхронизация); если поле изменили с обеих сторон, это конфликт, и ничего не перезаписывается. <b>Каталог</b>: поле живёт только в приложении. <b>Администратор</b> в прототипе — уровень Owner или Editor в меню Share; <b>Редактор</b> — Contributor.</span></div>
+  </div>
+  <div class="card"><h3>Пороги защиты</h3><div class="row">
+    <div class="field"><label for="set-mass">Отправка: макс. тестов на одно поле без подтверждения</label><input type="number" id="set-mass" min="10" value="${S.settings.massLimit}"${adm ? "" : " disabled"}></div>
+    ${adm ? `<button class="btn" data-act="save-settings">Сохранить</button>` : ""}</div></div>
+  <div class="card"><h3>Справочники</h3>
+    <div class="tabs">${dicts.map(d => `<button data-act="dict-tab" data-d="${esc(d)}" aria-pressed="${d === S.dictTab}">${esc(d)} (${S.dicts[d].length})</button>`).join("")}</div>
+    <div class="tablewrap" style="max-height:360px;overflow:auto"><table><thead><tr><th>ID SmartLIS</th><th>Название</th><th></th></tr></thead><tbody>
+    ${(S.dicts[S.dictTab] || []).map(([id, n]) => `<tr><td class="mono">${esc(id)}</td><td>${esc(n)}</td><td>${dupIds.has(String(id)) ? '<span class="chip bad">дубль названия</span>' : ""}</td></tr>`).join("")}
+    </tbody></table></div>
+    <span class="muted">Справочники приходят из SmartLIS. Для SmartComm API к ним нужно будет добавить коды: при обновлении связанные сущности передаются по коду.</span></div>`;
+}
+
+async function saveFieldsAndSettings(next) {
+  if (S.mode === "local") { Object.assign(S, next); renderAll(); return; }
+  try {
+    await withRetry(() => db.doc("config/main").update({ fields: next.fields || S.fields, settings: next.settings || S.settings }));
+    await db.collection("events").add({ t: new Date().toISOString(), u: S.me, kind: "settings", title: "Изменены настройки", summary: {} });
+    toast("Настройки сохранены.");
+  } catch (e) { toast("Не удалось сохранить настройки: " + (e.code || e.message), true); }
+}
+
+/* ================= modal ================= */
+function ask(title, text, okLabel) {
+  return new Promise(resolve => {
+    $("#modal").innerHTML = `<div class="modal-back"><div class="modal" role="dialog" aria-modal="true" aria-label="${esc(title)}"><h3>${esc(title)}</h3>${text ? `<p style="margin:0" class="muted">${esc(text)}</p>` : ""}
+      <div class="row" style="justify-content:flex-end"><button class="btn" id="m-no">Отмена</button><button class="btn primary" id="m-yes">${esc(okLabel || "Да")}</button></div></div></div>`;
+    const done = (v) => { $("#modal").innerHTML = ""; resolve(v); };
+    $("#m-yes").onclick = () => done(true); $("#m-no").onclick = () => done(false); $("#m-yes").focus();
+  });
+}
+
+/* ================= copy / download ================= */
+function payload(what) {
+  return what === "web" ? JSON.stringify(S._web, null, 2) : JSON.stringify({ tests: (S._export || { tests: [] }).tests }, null, 2);
+}
+async function copyJson(what) {
+  const text = payload(what);
+  try { await navigator.clipboard.writeText(text); toast("JSON скопирован."); }
+  catch (e) { toast("Браузер не дал скопировать. Выделите текст в окне JSON и скопируйте вручную.", true); }
+}
+async function downloadJson(what) {
+  if (!downloads) return;
+  const d = new Date().toISOString().slice(0, 10);
+  try { await downloads.save({ filename: what === "web" ? `web_catalog_${d}.json` : `smartlis_delta_${d}.json`, data: payload(what) }); }
+  catch (e) { if (!(e && /cancel|declin|abort/i.test(String(e.code || e.message)))) toast("Не удалось скачать файл.", true); }
+}
+
+/* ================= events ================= */
+function go(v) { S.view = v; S.openCode = null; if (location.hash !== "#" + v) history.replaceState(null, "", "#" + v); renderAll(); $("#main").scrollTop = 0; }
+
+document.addEventListener("click", async (e) => {
+  const el = e.target.closest("[data-go],[data-act],[data-open]");
+  if (!el) return;
+  if (e.target.matches("input[type=checkbox][data-sel]")) return;
+  if (el.dataset.go) return go(el.dataset.go);
+  if (el.dataset.open && !el.dataset.act) { S.openCode = el.dataset.open; S.edits = {}; renderDrawer(); return; }
+  const a = el.dataset.act;
+  if (a === "go") return go(el.dataset.v);
+  if (a === "close") { if (Object.keys(S.edits).length && !(await ask("Закрыть без сохранения?", "Несохранённые изменения пропадут.", "Закрыть"))) return; S.openCode = null; S.edits = {}; $("#drawer").innerHTML = ""; return; }
+  if (a === "save") return saveCard();
+  if (a === "discard") { S.edits = {}; renderDrawer(); return; }
+  if (a === "resolve") return resolveConflict(el.dataset.k, el.dataset.how);
+  if (a === "page") { S.page += Number(el.dataset.d); renderAll(); $("#main").scrollTop = 0; return; }
+  if (a === "reset-filters") { S.f = { q: "", section: "", publish: "", catalog: "", order: "", status: "", check: "" }; S.page = 0; renderAll(); return; }
+  if (a === "clear-check") { S.f.check = ""; S.page = 0; renderAll(); return; }
+  if (a === "go-check") { S.f = { q: "", section: "", publish: "", catalog: "", order: "", status: "", check: el.dataset.c }; S.page = 0; go("catalog"); return; }
+  if (a === "sel-page") { const codes = [...document.querySelectorAll("[data-sel]")].map(x => x.dataset.sel); const all = codes.every(c => S.selected.has(c)); codes.forEach(c => all ? S.selected.delete(c) : S.selected.add(c)); renderAll(); return; }
+  if (a === "sel-all") { filtered().forEach(t => S.selected.add(t.code)); renderAll(); return; }
+  if (a === "bulk-clear") { S.selected.clear(); renderAll(); return; }
+  if (a === "bulk-apply") return bulkApply();
+  if (a === "mark-sent") return markSent();
+  if (a === "copy-json") return copyJson(el.dataset.what);
+  if (a === "dl-json") return downloadJson(el.dataset.what);
+  if (a === "import-cancel") { S.importPlan = null; renderAll(); return; }
+  if (a === "import-apply") return applyImport();
+  if (a === "excel-cancel") { S.excelPlan = null; renderAll(); return; }
+  if (a === "excel-apply") return applyExcel();
+  if (a === "init-seed") { const seed = await loadSeed(); const ok = await ask("Начать работу с этим снимком?", `Будут созданы общие данные: ${seed.tests.length} тестов на ${seed.snapshotDate}. Потом их можно заменить актуальным Excel или обновить импортом из SmartLIS.`, "Начать"); if (!ok) return; await initStore(seed.tests, seed.dicts, seed.source); return; }
+  if (a === "dict-tab") { S.dictTab = el.dataset.d; renderAll(); return; }
+  if (a === "save-settings") { const n = Number($("#set-mass").value); if (!(n >= 10)) { toast("Порог должен быть не меньше 10.", true); return; } return saveFieldsAndSettings({ settings: { ...S.settings, massLimit: n } }); }
+});
+
+document.addEventListener("change", async (e) => {
+  const el = e.target;
+  if (el.dataset.filter) { S.f[el.dataset.filter] = el.value; S.page = 0; renderAll(); return; }
+  if (el.id === "f-group") { S.group = el.checked; S.page = 0; renderAll(); return; }
+  if (el.dataset.sel) { el.checked ? S.selected.add(el.dataset.sel) : S.selected.delete(el.dataset.sel); renderAll(); return; }
+  if (el.id === "bulk-field") { $("#bulk-value-wrap").innerHTML = bulkValueInput(el.value); return; }
+  if (el.dataset.edit) {
+    if (el.tagName !== "SELECT") return;   // text fields are tracked by the input handler; re-rendering here would eat the next click
+    const t = S.tests.get(S.openCode); const f = FM()[el.dataset.edit];
+    const v = readInput(f, el.value);
+    if (same(v, cv(t, f.k))) delete S.edits[f.k]; else S.edits[f.k] = v;
+    renderDrawer(); return;
+  }
+  if (el.id === "file-import" && el.files[0]) return readImportFile(el.files[0]);
+  if (el.id === "file-excel" && el.files[0]) return readExcel(el.files[0]);
+  if (el.id === "import-override") { S.importOverride = el.checked; renderAll(); return; }
+  if (el.id === "export-override") { S.exportOverride = el.checked; renderAll(); return; }
+  if (el.id === "set-akc") return saveFieldsAndSettings({ settings: { ...S.settings, includeAkc: el.checked } });
+  if (el.dataset.fset !== undefined) {
+    const fields = S.fields.map(f => ({ ...f })); const f = fields[Number(el.dataset.fset)];
+    if (el.dataset.p === "e") { f.e = el.value; if (f.o === "both") f.o = "smartlis"; } else f[el.dataset.p] = el.checked ? 1 : 0;
+    return saveFieldsAndSettings({ fields });
+  }
+});
+
+let qTimer = null;
+document.addEventListener("input", (e) => {
+  if (e.target.id === "f-q") {
+    clearTimeout(qTimer); const v = e.target.value;
+    qTimer = setTimeout(() => { S.f.q = v; S.page = 0; renderAll(); const i = $("#f-q"); if (i) { i.focus(); i.setSelectionRange(v.length, v.length); } }, 250);
+  }
+  if (e.target.dataset.edit && (e.target.tagName === "TEXTAREA" || e.target.type === "text")) {
+    const t = S.tests.get(S.openCode); const f = FM()[e.target.dataset.edit];
+    const v = readInput(f, e.target.value);
+    if (same(v, cv(t, f.k))) delete S.edits[f.k]; else S.edits[f.k] = v;
+    e.target.classList.toggle("dirty", f.k in S.edits);
+    const foot = document.querySelector(".drawer footer");
+    if (foot) { const n = Object.keys(S.edits).length; foot.querySelector(".muted").textContent = n ? `Изменено полей: ${n}` : "Нет несохранённых изменений"; foot.querySelector('[data-act="save"]').disabled = !n || !canWrite(); foot.querySelector('[data-act="discard"]').disabled = !n; }
+  }
+});
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && S.openCode && !$("#modal").innerHTML) document.querySelector('.drawer [data-act="close"]').click(); });
+["dragover", "dragleave", "drop"].forEach(ev => document.addEventListener(ev, (e) => {
+  const z = e.target.closest && e.target.closest(".drop"); if (!z) return;
+  e.preventDefault();
+  if (ev === "dragover") z.classList.add("over"); else z.classList.remove("over");
+  if (ev === "drop" && e.dataTransfer.files[0]) { const inp = z.querySelector("input[type=file]"); if (inp && inp.id === "file-excel") readExcel(e.dataTransfer.files[0]); else readImportFile(e.dataTransfer.files[0]); }
+}));
+window.addEventListener("hashchange", () => { const v = location.hash.slice(1); if (v && v !== S.view && ["catalog", "export", "import", "site", "checks", "log", "setup"].includes(v)) go(v); });
+
+const startView = location.hash.slice(1);
+if (["catalog", "export", "import", "site", "checks", "log", "setup"].includes(startView)) S.view = startView;
+renderAll();
+boot();
+</script>
+</body>
+</html>
