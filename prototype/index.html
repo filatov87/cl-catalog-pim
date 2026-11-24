@@ -117,6 +117,22 @@ th, td { padding: 7px 10px; border-bottom: 1px solid var(--line); text-align: le
 th { font-size: 12px; font-weight: 500; color: var(--muted); background: var(--surface-2); position: sticky; top: 0; z-index: 1; white-space: nowrap; }
 tbody tr.click { cursor: pointer; }
 tbody tr.click:hover td { background: var(--surface-2); }
+details.card > summary { cursor: pointer; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; list-style: none; }
+details.card > summary::-webkit-details-marker { display: none; }
+details.card > summary::before { content: "▸"; color: var(--muted, #888); }
+details.card[open] > summary::before { content: "▾"; }
+details.card > summary h3 { margin: 0; }
+details.card[open] > summary { margin-bottom: 10px; }
+table.cat thead tr.filters th { padding-top: 0; }
+.th-sort { all: unset; cursor: pointer; display: inline-flex; gap: 4px; align-items: center; font-weight: 600; white-space: nowrap; }
+.th-sort span { color: var(--muted); font-size: 11px; }
+.th-sort.on span { color: var(--accent); }
+.th-sort:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px; }
+tr.filters input, tr.filters select { width: 100%; min-width: 70px; font: inherit; font-size: 12px; font-weight: 400; padding: 3px 6px; border: 1px solid var(--line); border-radius: 4px; background: var(--surface); color: var(--ink); box-sizing: border-box; }
+td.clip { max-width: 240px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+tr.filters .active { border-color: var(--accent); background: var(--accent-soft); }
+.colpick .colgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; max-height: 340px; overflow: auto; }
+.colpick .colgrid label { font-size: 13px; padding: 2px 0; }
 tr.group td { background: var(--accent-soft); color: var(--accent); font-weight: 600; font-size: 13px; }
 td.stripe { width: 4px; padding: 0; }
 td.stripe.bad { background: var(--bad); } td.stripe.warn { background: var(--warn); } td.stripe.acc { background: var(--accent); } td.stripe.info { background: var(--info); }
@@ -206,6 +222,12 @@ pre.json { margin: 0; max-height: 360px; overflow: auto; background: var(--surfa
 <script>
 "use strict";
 /* ================= state ================= */
+const DEFAULT_COLS = ["code", "name", "sectionid", "sampleid", "fin_price2", "publish", "catalog"];
+const VIEW_KEY = "clcat.view.v1";
+function loadViewPrefs() {
+  try { const v = JSON.parse(localStorage.getItem(VIEW_KEY) || "null"); if (v && Array.isArray(v.cols) && v.cols.length) { S.cols = v.cols; if (v.sort) S.sort = v.sort; } } catch (e) { /* storage unavailable: defaults */ }
+}
+function saveViewPrefs() { try { localStorage.setItem(VIEW_KEY, JSON.stringify({ cols: S.cols, sort: S.sort })); } catch (e) { /* ignore */ } }
 const S = {
   mode: "loading",            // loading | snapshot | live | local
   fields: DEFAULT_FIELDS.map(f => ({ ...f })),
@@ -218,7 +240,11 @@ const S = {
   perms: { write: true, admin: false, owner: false },
   me: null,
   view: "catalog",
-  f: { q: "", section: "", publish: "", catalog: "", order: "", status: "", check: "" },
+  f: { q: "", status: "", check: "" },
+  cols: DEFAULT_COLS.slice(),   // visible catalog columns (field keys), remembered per viewer
+  sort: { k: null, dir: 1 },    // column sort: dir 1 = A→Z / small→large, -1 = reverse
+  cf: {},                       // column filters: field key → filter text or choice value
+  colpick: false,
   group: false,
   page: 0,
   selected: new Set(),
@@ -235,6 +261,7 @@ const PAGE = 100;
 let db = null, user = null, downloads = null, seedCache = null;
 const subs = { chunks: {}, hist: {} };
 
+loadViewPrefs();
 const F = () => S.fields;
 const FM = () => fieldMap(S.fields);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -287,28 +314,30 @@ function counts() {
   return { pending, bad, pub };
 }
 
+function colField(k) { return k === "code" ? CODE_FIELD : FM()[k]; }
 function filtered() {
   const q = S.f.q.trim().toLowerCase();
   const check = CHECKS.find(c => c.id === S.f.check);
+  const colFilters = Object.entries(S.cf).filter(([k, v]) => String(v ?? "").trim() && colField(k)).map(([k, v]) => [colField(k), v]);
   const list = [];
   for (const t of S.tests.values()) {
     if (q && !(t.code.toLowerCase().includes(q) || String(cv(t, "name") || "").toLowerCase().includes(q))) continue;
-    if (S.f.section && norm(t.sl && t.sl.sectionid) !== S.f.section) continue;
-    if (S.f.publish && (S.f.publish === "EMPTY" ? !isEmpty(t.val && t.val.publish) : norm(t.val && t.val.publish) !== S.f.publish)) continue;
-    if (S.f.catalog && (S.f.catalog === "EMPTY" ? !isEmpty(cv(t, "catalog")) : norm(cv(t, "catalog")) !== S.f.catalog)) continue;
-    if (S.f.order && norm(t.sl && t.sl.order) !== S.f.order) continue;
     if (S.f.status) {
       const st = S.f.status;
       if (st === "pending" && !pendingFields(t, F()).length) continue;
       if (st === "conflict" && !Object.keys(conflictsOf(t)).length) continue;
       if (st === "missing" && !(t.meta && t.meta.missing)) continue;
       if (st === "new" && !(t.meta && t.meta.addedAt && t.meta.lastImport === t.meta.addedAt)) continue;
+      if (st === "ok" && (pendingFields(t, F()).length || Object.keys(conflictsOf(t)).length || (t.meta && t.meta.missing))) continue;
     }
     if (check && !check.fn(t, F())) continue;
+    if (colFilters.some(([f, v]) => !matchCol(t, f, v, S.dicts))) continue;
     list.push(t);
   }
+  const sf = S.sort.k && colField(S.sort.k);
+  const byCol = sf ? compareBy(sf, S.sort.dir, S.dicts) : (a, b) => a.code.localeCompare(b.code);
   const secName = (t) => dictName(S.dicts, "sectionid", t.sl && t.sl.sectionid) || "~";
-  list.sort((a, b) => S.group ? (secName(a).localeCompare(secName(b), "lv") || a.code.localeCompare(b.code)) : a.code.localeCompare(b.code));
+  list.sort((a, b) => (S.group ? secName(a).localeCompare(secName(b), "lv") : 0) || byCol(a, b));
   return list;
 }
 
@@ -364,7 +393,7 @@ async function boot() {
       return;
     }
     const c = snap.data();
-    if (Array.isArray(c.fields) && c.fields.length) S.fields = c.fields.map(f => ({ ...f }));
+    if (Array.isArray(c.fields) && c.fields.length) S.fields = mergeFields(c.fields, DEFAULT_FIELDS);
     S.settings = { ...DEFAULT_SETTINGS, ...(c.settings || {}) };
     S.dicts = c.dicts || {};
     if (S.mode !== "live") { S.mode = "live"; rebuildFromChunks(); }
@@ -490,14 +519,52 @@ function renderBanner() {
 function sel(id, label, value, opts) {
   return `<div class="field"><label for="${id}">${esc(label)}</label><select id="${id}" data-filter="${id.replace("f-", "")}">${opts.map(([v, l]) => `<option value="${esc(v)}"${v === value ? " selected" : ""}>${esc(l)}</option>`).join("")}</select></div>`;
 }
+function headCell(f) {
+  const on = S.sort.k === f.k; const arrow = on ? (S.sort.dir > 0 ? "↑" : "↓") : "↕";
+  const sortName = on ? (S.sort.dir > 0 ? "ascending" : "descending") : "none";
+  return `<th class="${f.t === "num" ? "num" : ""}" aria-sort="${sortName}"><button class="th-sort${on ? " on" : ""}" data-sort="${esc(f.k)}" title="Сортировать: ${esc(f.l)}">${esc(f.l)} <span aria-hidden="true">${arrow}</span></button></th>`;
+}
+function filterCell(f) {
+  const v = S.cf[f.k] ?? "";
+  const kind = filterKind(f);
+  if (kind === "choice") {
+    const opts = choiceOptions(f, S.dicts);
+    return `<th><select data-cf="${esc(f.k)}" aria-label="Фильтр: ${esc(f.l)}" class="${v ? "active" : ""}"><option value="">Все</option>${opts.map(([o, l]) => `<option value="${esc(o)}"${o === v ? " selected" : ""}>${esc(l)}</option>`).join("")}</select></th>`;
+  }
+  const ph = kind === "num" ? ">5, 3–10" : "содержит…";
+  const tip = kind === "num" ? "Число: 5, >5, <=10, 3–10. «=» — пусто, «!=» — заполнено." : "Текст содержит… «!слово» — не содержит, «=» — пусто, «!=» — заполнено.";
+  return `<th><input type="text" data-cf="${esc(f.k)}" value="${esc(v)}" placeholder="${ph}" title="${tip}" aria-label="Фильтр: ${esc(f.l)}" class="${String(v).trim() ? "active" : ""}"></th>`;
+}
+function statusFilter() {
+  const o = [["", "Любой"], ["pending", "К отправке"], ["conflict", "Конфликт"], ["missing", "Нет в SmartLIS"], ["new", "Новые"], ["ok", "Без замечаний"]];
+  return `<select data-filter="status" aria-label="Фильтр: статус" class="${S.f.status ? "active" : ""}">${o.map(([v, l]) => `<option value="${v}"${v === S.f.status ? " selected" : ""}>${l}</option>`).join("")}</select>`;
+}
+function bodyCell(t, f) {
+  const raw = colRaw(t, f.k);
+  if (f.k === "code") return `<td class="mono">${esc(t.code)}</td>`;
+  if (f.k === "name") return `<td class="name">${esc(raw ?? "")}</td>`;
+  if (f.t === "publish") return `<td>${pubChip(raw)}</td>`;
+  if (f.t === "bool") return `<td>${boolChip(raw)}</td>`;
+  if (f.t === "num") return `<td class="num">${esc(disp(f.k, raw))}</td>`;
+  const txt = colText(t, f, S.dicts);
+  const short = txt.length > 70 ? txt.slice(0, 70) + "…" : txt;
+  return `<td class="clip"${txt.length > 30 ? ` title="${esc(txt.slice(0, 500))}"` : ""}>${esc(short)}</td>`;
+}
+function colPicker() {
+  const groups = [["Основное", [CODE_FIELD, ...F().filter(f => f.g === "smartlis")]], ["Цены", F().filter(f => f.g === "price")], ["Каталог", F().filter(f => f.g === "catalog")], ["Сайт · LV", F().filter(f => f.g === "web")], ["Сайт · RU", F().filter(f => f.g === "web_ru")], ["Сайт · EN", F().filter(f => f.g === "web_en")], ["Изображения", F().filter(f => f.g === "media")]];
+  return `<div class="card colpick"><div class="row" style="justify-content:space-between"><h3>Колонки таблицы</h3>
+    <div class="row"><button class="btn sm" data-act="cols-default">Как по умолчанию</button><button class="btn sm" data-act="colpick">Готово</button></div></div>
+    <div class="colgrid">${groups.filter(g => g[1].length).map(([gl, fs]) => `<div><span class="lbl">${esc(gl)}</span>${fs.map(f => `<label class="row"><input type="checkbox" data-col="${esc(f.k)}"${S.cols.includes(f.k) ? " checked" : ""}${f.k === "code" ? " disabled" : ""}> ${esc(f.l)}</label>`).join("")}</div>`).join("")}</div>
+    <span class="lbl">Выбор колонок и сортировка запоминаются в этом браузере. Новая колонка добавляется справа.</span></div>`;
+}
 function viewCatalog() {
   const list = filtered();
   const pages = Math.max(1, Math.ceil(list.length / PAGE));
   if (S.page >= pages) S.page = pages - 1;
   const slice = list.slice(S.page * PAGE, S.page * PAGE + PAGE);
-  const sections = (S.dicts.sectionid || []).slice().sort((a, b) => String(a[1]).localeCompare(String(b[1]), "lv"));
+  const cols = S.cols.map(colField).filter(Boolean);
   const check = CHECKS.find(c => c.id === S.f.check);
-  const editable = F().filter(f => canEditField(f) && ["publish", "bool", "dict", "text", "num"].includes(f.t) && f.g !== "web");
+  const editable = F().filter(f => canEditField(f) && ["publish", "bool", "dict", "text", "num"].includes(f.t) && !isWebGroup(f));
   const bulk = S.selected.size ? `<div class="bulk"><b>Выбрано: ${S.selected.size}</b>
       <select id="bulk-field" aria-label="Поле">${editable.map(f => `<option value="${f.k}">${esc(f.l)}</option>`).join("")}</select>
       <span id="bulk-value-wrap">${editable.length ? bulkValueInput(editable[0].k) : ""}</span>
@@ -507,38 +574,32 @@ function viewCatalog() {
   for (const t of slice) {
     if (S.group) {
       const sec = dictName(S.dicts, "sectionid", t.sl && t.sl.sectionid) || "Без секции";
-      if (sec !== lastSec) { rows += `<tr class="group"><td colspan="10">${esc(sec)}</td></tr>`; lastSec = sec; }
+      if (sec !== lastSec) { rows += `<tr class="group"><td colspan="${cols.length + 3}">${esc(sec)}</td></tr>`; lastSec = sec; }
     }
     const st = statusOf(t);
     rows += `<tr class="click" data-open="${esc(t.code)}">
       <td class="stripe ${stripeOf(t)}"></td>
       <td><input type="checkbox" data-sel="${esc(t.code)}" aria-label="Выбрать ${esc(t.code)}"${S.selected.has(t.code) ? " checked" : ""}></td>
-      <td class="mono">${esc(t.code)}</td>
-      <td class="name">${esc(cv(t, "name") ?? "")}</td>
-      <td>${esc(disp("sectionid", t.sl.sectionid))}</td>
-      <td>${esc(disp("sampleid", cv(t, "sampleid")))}</td>
-      <td class="num">${esc(disp("fin_price2", cv(t, "fin_price2")))}</td>
-      <td>${pubChip(t.val.publish)}</td>
-      <td>${boolChip(cv(t, "catalog"))}</td>
+      ${cols.map(f => bodyCell(t, f)).join("")}
       <td>${st.map(([c, l]) => `<span class="chip ${c}">${esc(l)}</span>`).join(" ")}</td></tr>`;
   }
-  return `<div class="view-head"><div><h2>Каталог анализов</h2><p>${list.length} из ${S.tests.size} тестов. Нажмите на строку, чтобы открыть карточку теста.</p></div>
+  const filterCount = Object.values(S.cf).filter(v => String(v ?? "").trim()).length + (S.f.status ? 1 : 0);
+  return `<div class="view-head"><div><h2>Каталог анализов</h2><p>${list.length} из ${S.tests.size} тестов. Нажмите на строку, чтобы открыть карточку теста. Заголовок колонки — сортировка, поле под ним — фильтр.</p></div>
     <div class="legend"><span><i style="background:var(--accent)"></i>есть правки к отправке</span><span><i style="background:var(--info)"></i>отправлено, ждёт подтверждения</span><span><i style="background:var(--bad)"></i>конфликт</span><span><i style="background:var(--warn)"></i>нет в SmartLIS</span></div></div>
   <div class="toolbar">
     <div class="field"><label for="f-q">Поиск по коду или названию</label><input type="search" id="f-q" value="${esc(S.f.q)}" placeholder="ALT, ferritīns…"></div>
-    ${sel("f-section", "Sekcija", S.f.section, [["", "Все секции"], ...sections.map(([id, n]) => [norm(id), n])])}
-    ${sel("f-publish", "Mājaslapā", S.f.publish, [["", "Все"], ["TRUE", "Jā"], ["FALSE", "Nē"], ["AKC", "AKC"], ["EMPTY", "Не решено"]])}
-    ${sel("f-catalog", "Katalogā", S.f.catalog, [["", "Все"], ["TRUE", "Jā"], ["FALSE", "Nē"], ["EMPTY", "Пусто"]])}
-    ${sel("f-order", "Pasūtāms", S.f.order, [["", "Все"], ["TRUE", "Jā"], ["FALSE", "Nē"]])}
-    ${sel("f-status", "Статус", S.f.status, [["", "Любой"], ["pending", "К отправке"], ["conflict", "Конфликт"], ["missing", "Нет в SmartLIS"], ["new", "Новые"]])}
     <label class="row" style="padding-bottom:6px"><input type="checkbox" id="f-group"${S.group ? " checked" : ""}> по секциям</label>
+    <button class="btn" data-act="colpick" aria-expanded="${S.colpick}">Колонки (${S.cols.length})</button>
     ${check ? `<span class="chip warn">Проверка: ${esc(check.l)} <button class="btn sm" data-act="clear-check" aria-label="Убрать фильтр проверки">×</button></span>` : ""}
-    ${(S.f.q || S.f.section || S.f.publish || S.f.catalog || S.f.order || S.f.status || S.f.check) ? `<button class="btn" data-act="reset-filters">Сбросить фильтры</button>` : ""}
+    ${S.sort.k ? `<span class="chip plain">Сортировка: ${esc(colField(S.sort.k) ? colField(S.sort.k).l : S.sort.k)} ${S.sort.dir > 0 ? "↑" : "↓"} <button class="btn sm" data-act="sort-clear" aria-label="Убрать сортировку">×</button></span>` : ""}
+    ${(S.f.q || filterCount || S.f.check) ? `<button class="btn" data-act="reset-filters">Сбросить фильтры${filterCount ? ` (${filterCount})` : ""}</button>` : ""}
   </div>
+  ${S.colpick ? colPicker() : ""}
   ${bulk}
-  <div class="tablewrap"><table>
-    <thead><tr><th></th><th><input type="checkbox" data-act="sel-page" aria-label="Выбрать страницу"></th><th>Kods</th><th>Testa nosaukums</th><th>Sekcija</th><th>Materiāls</th><th class="num">Cena, €</th><th>Mājaslapā</th><th>Katalogā</th><th>Статус</th></tr></thead>
-    <tbody>${rows || `<tr><td colspan="10" class="empty">Ничего не найдено. Измените фильтры.</td></tr>`}</tbody></table></div>
+  <div class="tablewrap"><table class="cat">
+    <thead><tr><th></th><th><input type="checkbox" data-act="sel-page" aria-label="Выбрать страницу"></th>${cols.map(headCell).join("")}<th>Статус</th></tr>
+    <tr class="filters"><th></th><th></th>${cols.map(filterCell).join("")}<th>${statusFilter()}</th></tr></thead>
+    <tbody>${rows || `<tr><td colspan="${cols.length + 3}" class="empty">Ничего не найдено. Измените фильтры.</td></tr>`}</tbody></table></div>
   <div class="pager"><span class="muted">${list.length ? `${S.page * PAGE + 1}–${Math.min(list.length, S.page * PAGE + PAGE)} из ${list.length}` : ""}</span>
     <button class="btn" data-act="page" data-d="-1"${S.page ? "" : " disabled"}>← Назад</button>
     <button class="btn" data-act="page" data-d="1"${S.page < pages - 1 ? "" : " disabled"}>Вперёд →</button>
@@ -595,8 +656,15 @@ function renderDrawer() {
   };
   const slFields = F().filter(f => isSl(f) && f.g === "smartlis" && !["template_code", "template_name", "template", "launch"].includes(f.k));
   const prices = F().filter(f => f.price);
-  const editMain = F().filter(f => !isSl(f) && f.g !== "web");
+  const editMain = F().filter(f => !isSl(f) && !isWebGroup(f));
   const editWeb = F().filter(f => !isSl(f) && f.g === "web");
+  const editMedia = F().filter(f => f.g === "media");
+  const missTr = missingTranslations({ val: { ...t.val, ...ed } }, F());
+  const langCard = ([g, L]) => { const fs = F().filter(f => f.g === g); if (!fs.length) return "";
+    const filled = fs.filter(f => !isEmpty(cur(f.k))).length; const miss = fs.filter(f => missTr.includes(f.k)).length;
+    return `<details class="card lang" data-lang="${g}"${S.openLang === g ? " open" : ""}><summary><h3>Сайт · ${L}</h3><span class="muted">заполнено ${filled} из ${fs.length}</span>${miss ? ` <span class="chip warn">нет перевода: ${miss}</span>` : ""}</summary>
+      <div class="form">${fs.map(formField).join("")}</div></details>`; };
+  const mediaLinks = editMedia.map(f => cur(f.k)).filter(v => !isEmpty(v) && /^https:\/\//i.test(String(v)));
   const tc = String(t.sl.template_code || "").split("|").filter(Boolean);
   const tn = String(t.sl.template_name || "").split(" | ");
   const launch = String(t.sl.launch || "").split(",").filter(Boolean);
@@ -615,7 +683,10 @@ function renderDrawer() {
         <div class="row"><button class="btn" data-act="resolve" data-k="${k}" data-how="ours"${ro ? " disabled" : ""}>Оставить значение каталога (уйдёт в SmartLIS)</button>
         <button class="btn" data-act="resolve" data-k="${k}" data-how="theirs"${ro ? " disabled" : ""}>Принять значение SmartLIS</button></div></div>`).join("")}
       <div class="card"><h3>Каталог</h3><div class="form">${editMain.map(formField).join("")}</div></div>
-      <div class="card"><h3>Сайт${published ? "" : ' <span class="chip plain">тест не публикуется</span>'}</h3><div class="form">${editWeb.map(formField).join("")}</div></div>
+      <div class="card"><h3>Сайт · LV${published ? "" : ' <span class="chip plain">тест не публикуется</span>'}</h3><div class="form">${editWeb.map(formField).join("")}</div></div>
+      ${LANGS.map(langCard).join("")}
+      ${editMedia.length ? `<div class="card"><h3>Изображения для сайта</h3><div class="form">${editMedia.map(formField).join("")}</div>
+        ${mediaLinks.length ? `<div class="row">${mediaLinks.map((u, i) => `<a href="${esc(u)}" target="_blank" rel="noopener noreferrer">Открыть изображение ${i + 1}</a>`).join("")}</div>` : `<span class="lbl">Ссылки на изображения (https). Уходят на сайт как media1–media3.</span>`}</div>` : ""}
       <div class="card"><h3>Данные SmartLIS</h3><div class="form">${slFields.map(formField).join("")}</div>
         <span class="lbl">Поля с пометкой ↔ SmartLIS можно править: изменение уйдёт в SmartLIS при отправке. Остальные меняются только в SmartLIS.</span></div>
       <div class="card"><h3>Цены, EUR</h3><div class="form">${prices.map(formField).join("")}</div>
@@ -824,11 +895,15 @@ function viewSite() {
   const pub = all.filter(t => norm(t.val.publish) === "TRUE");
   const akc = all.filter(t => norm(t.val.publish) === "AKC");
   const incomplete = pub.filter(t => missingWebContent(t, F()).length);
+  const withLv = pub.filter(t => !isEmpty(t.val.longDescription));
+  const trDone = (g) => withLv.filter(t => F().filter(f => f.g === g && f.tr === "longDescription").every(f => !isEmpty(t.val[f.k]))).length;
   const text = JSON.stringify(json, null, 2);
-  return `<div class="view-head"><div><h2>Сайт (Web JSON)</h2><p>Файл для Strapi. Попадают тесты с «Mājaslapā = Jā»; акции AKC собираются в отдельный массив promotions и пока выключены.</p></div></div>
+  return `<div class="view-head"><div><h2>Сайт (Web JSON)</h2><p>Файл для Strapi. Попадают тесты с «Mājaslapā = Jā» — тексты на LV, RU и EN (поля <code>…_ru</code>, <code>…_en</code>) и ссылки на изображения <code>media1–3</code>; акции AKC собираются в отдельный массив promotions и пока выключены.</p></div></div>
   <div class="tiles">
     <div class="tile good"><b>${pub.length}</b><span>тестов на сайте</span></div>
     <div class="tile ${incomplete.length ? "warn" : ""}"><b>${incomplete.length}</b><span>из них без нужных текстов</span></div>
+    <div class="tile"><b>${trDone("web_ru")} / ${withLv.length}</b><span>с переводом RU (из тестов с LV-описанием)</span></div>
+    <div class="tile"><b>${trDone("web_en")} / ${withLv.length}</b><span>с переводом EN</span></div>
     <div class="tile info"><b>${akc.length}</b><span>акций AKC ${S.settings.includeAkc ? "в выгрузке" : "(выключены)"}</span></div>
   </div>
   <div class="card"><h3>Какие цены уходят на сайт</h3>
@@ -885,7 +960,7 @@ function viewSetup() {
       <td>${isSl(f) ? "SmartLIS" : "Каталог"}</td>
       <td>${adm ? `<select data-fset="${i}" data-p="e" aria-label="Кто может править ${esc(f.k)}">${Object.entries(EDIT_LABEL).filter(([v]) => isSl(f) || v !== "none").map(([v, l]) => `<option value="${v}"${editLevel(f) === v ? " selected" : ""}>${l}</option>`).join("")}</select>` : esc(EDIT_LABEL[editLevel(f)])}</td>
       <td>${f.price ? '<span class="muted">по правилу цен</span>' : `<input type="checkbox" data-fset="${i}" data-p="web" aria-label="На сайт ${esc(f.k)}"${f.web ? " checked" : ""}${adm ? "" : " disabled"}>`}</td>
-      <td>${f.g === "web" ? `<input type="checkbox" data-fset="${i}" data-p="wreq" aria-label="Обязательно ${esc(f.k)}"${f.wreq ? " checked" : ""}${adm ? "" : " disabled"}>` : ""}</td></tr>`).join("")}
+      <td>${isWebGroup(f) ? `<input type="checkbox" data-fset="${i}" data-p="wreq" aria-label="Обязательно ${esc(f.k)}"${f.wreq ? " checked" : ""}${adm ? "" : " disabled"}>` : ""}</td></tr>`).join("")}
     </tbody></table></div>
     <div class="alert info"><span><b>Источник SmartLIS</b>: значение приходит при импорте. Если поле разрешено править, правка уходит в SmartLIS, а при следующем импорте сравниваются три значения (каталог, SmartLIS, последняя синхронизация); если поле изменили с обеих сторон, это конфликт, и ничего не перезаписывается. <b>Каталог</b>: поле живёт только в приложении. <b>Администратор</b> в прототипе — уровень Owner или Editor в меню Share; <b>Редактор</b> — Contributor.</span></div>
   </div>
@@ -939,6 +1014,12 @@ async function downloadJson(what) {
 function go(v) { S.view = v; S.openCode = null; if (location.hash !== "#" + v) history.replaceState(null, "", "#" + v); renderAll(); $("#main").scrollTop = 0; }
 
 document.addEventListener("click", async (e) => {
+  const sb = e.target.closest("[data-sort]");
+  if (sb) {
+    const k = sb.dataset.sort;
+    S.sort = S.sort.k !== k ? { k, dir: 1 } : S.sort.dir > 0 ? { k, dir: -1 } : { k: null, dir: 1 };
+    S.page = 0; saveViewPrefs(); renderAll(); return;
+  }
   const el = e.target.closest("[data-go],[data-act],[data-open]");
   if (!el) return;
   if (e.target.matches("input[type=checkbox][data-sel]")) return;
@@ -951,9 +1032,12 @@ document.addEventListener("click", async (e) => {
   if (a === "discard") { S.edits = {}; renderDrawer(); return; }
   if (a === "resolve") return resolveConflict(el.dataset.k, el.dataset.how);
   if (a === "page") { S.page += Number(el.dataset.d); renderAll(); $("#main").scrollTop = 0; return; }
-  if (a === "reset-filters") { S.f = { q: "", section: "", publish: "", catalog: "", order: "", status: "", check: "" }; S.page = 0; renderAll(); return; }
+  if (a === "reset-filters") { S.f = { q: "", status: "", check: "" }; S.cf = {}; S.page = 0; renderAll(); return; }
+  if (a === "colpick") { S.colpick = !S.colpick; renderAll(); return; }
+  if (a === "cols-default") { S.cols = DEFAULT_COLS.slice(); saveViewPrefs(); renderAll(); return; }
+  if (a === "sort-clear") { S.sort = { k: null, dir: 1 }; saveViewPrefs(); renderAll(); return; }
   if (a === "clear-check") { S.f.check = ""; S.page = 0; renderAll(); return; }
-  if (a === "go-check") { S.f = { q: "", section: "", publish: "", catalog: "", order: "", status: "", check: el.dataset.c }; S.page = 0; go("catalog"); return; }
+  if (a === "go-check") { S.f = { q: "", status: "", check: el.dataset.c }; S.cf = {}; S.page = 0; go("catalog"); return; }
   if (a === "sel-page") { const codes = [...document.querySelectorAll("[data-sel]")].map(x => x.dataset.sel); const all = codes.every(c => S.selected.has(c)); codes.forEach(c => all ? S.selected.delete(c) : S.selected.add(c)); renderAll(); return; }
   if (a === "sel-all") { filtered().forEach(t => S.selected.add(t.code)); renderAll(); return; }
   if (a === "bulk-clear") { S.selected.clear(); renderAll(); return; }
@@ -973,6 +1057,13 @@ document.addEventListener("click", async (e) => {
 document.addEventListener("change", async (e) => {
   const el = e.target;
   if (el.dataset.filter) { S.f[el.dataset.filter] = el.value; S.page = 0; renderAll(); return; }
+  if (el.dataset.cf && el.tagName === "SELECT") { S.cf[el.dataset.cf] = el.value; S.page = 0; renderAll(); return; }
+  if (el.dataset.col) {
+    const k = el.dataset.col;
+    S.cols = el.checked ? [...S.cols.filter(c => c !== k), k] : S.cols.filter(c => c !== k);
+    if (!el.checked) { delete S.cf[el.dataset.col]; if (S.sort.k === el.dataset.col) S.sort = { k: null, dir: 1 }; }
+    saveViewPrefs(); renderAll(); return;
+  }
   if (el.id === "f-group") { S.group = el.checked; S.page = 0; renderAll(); return; }
   if (el.dataset.sel) { el.checked ? S.selected.add(el.dataset.sel) : S.selected.delete(el.dataset.sel); renderAll(); return; }
   if (el.id === "bulk-field") { $("#bulk-value-wrap").innerHTML = bulkValueInput(el.value); return; }
@@ -996,7 +1087,16 @@ document.addEventListener("change", async (e) => {
 });
 
 let qTimer = null;
+let cfTimer = null;
 document.addEventListener("input", (e) => {
+  if (e.target.dataset.cf && e.target.tagName === "INPUT") {
+    clearTimeout(cfTimer); const k = e.target.dataset.cf; const v = e.target.value; const pos = e.target.selectionStart;
+    cfTimer = setTimeout(() => {
+      S.cf[k] = v; S.page = 0; renderAll();
+      const i = document.querySelector(`input[data-cf="${CSS.escape(k)}"]`); if (i) { i.focus(); i.setSelectionRange(pos, pos); }
+    }, 300);
+    return;
+  }
   if (e.target.id === "f-q") {
     clearTimeout(qTimer); const v = e.target.value;
     qTimer = setTimeout(() => { S.f.q = v; S.page = 0; renderAll(); const i = $("#f-q"); if (i) { i.focus(); i.setSelectionRange(v.length, v.length); } }, 250);
@@ -1010,6 +1110,10 @@ document.addEventListener("input", (e) => {
     if (foot) { const n = Object.keys(S.edits).length; foot.querySelector(".muted").textContent = n ? `Изменено полей: ${n}` : "Нет несохранённых изменений"; foot.querySelector('[data-act="save"]').disabled = !n || !canWrite(); foot.querySelector('[data-act="discard"]').disabled = !n; }
   }
 });
+document.addEventListener("toggle", (e) => {
+  const d = e.target; if (!(d instanceof HTMLElement) || !d.matches("details.lang")) return;
+  if (d.open) S.openLang = d.dataset.lang; else if (S.openLang === d.dataset.lang) S.openLang = null;
+}, true);
 document.addEventListener("keydown", (e) => { if (e.key === "Escape" && S.openCode && !$("#modal").innerHTML) document.querySelector('.drawer [data-act="close"]').click(); });
 ["dragover", "dragleave", "drop"].forEach(ev => document.addEventListener(ev, (e) => {
   const z = e.target.closest && e.target.closest(".drop"); if (!z) return;

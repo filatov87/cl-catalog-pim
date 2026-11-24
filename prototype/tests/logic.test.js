@@ -152,3 +152,84 @@ test("checks run on the sample without errors", () => {
   for (const c of L.CHECKS) for (const t of tests.values()) c.fn(t, F);
   assert.ok(Array.isArray(L.dictDuplicates(sample.dicts)));
 });
+
+/* ---- SSoT v2 (24.11.2026): RU/EN translations and media ---- */
+function sheetsV2() {
+  const tech = ["code", "name", "catalog", "sampleid", "publish ", "codename", "title", "longDescription", null, "longDescription_ru", "description1_ru", "longDescription_en", "media1", "media2", "media3"];
+  const biz = tech.map(h => h || "Dzīvnieka suga VET analīzēm");
+  return {
+    Catalog: [biz, tech,
+      ["T1", "Tests 1", true, "NULL", true, "t1", "Tests 1", "LV teksts", null, "RU текст", null, null, "https://example.com/a.jpg", null, null],
+      ["T2", "Tests 2", false, "NULL", false, null, null, null, "Suns; Kaķis", null, null, null, "ftp://bad", null, null],
+      ["T2", "Tests 2", false, "NULL", true, "t2", "Tests 2", "LV 2", null, "RU 2", null, "EN 2", null, null, null]],
+    Dictionary: [["field", "db_value", "display_value"]],
+  };
+}
+
+test("mergeFields keeps the stored registry and adds new default fields in place", () => {
+  const stored = F.filter(f => !/_ru$|_en$|^media/.test(f.k)).map(f => ({ ...f, e: f.k === "title" ? "admin" : f.e }));
+  const m = L.mergeFields(stored, F);
+  assert.equal(m.length, F.length);
+  assert.equal(m.find(f => f.k === "title").e, "admin", "stored setting is kept");
+  assert.deepEqual(m.map(f => f.k), F.map(f => f.k), "new fields land at their default place");
+});
+
+test("Excel v2: translations and media are read, duplicate row with more content wins", () => {
+  const r = L.buildFromExcel(sheetsV2(), F);
+  assert.equal(r.errors.length, 0);
+  assert.equal(r.tests.length, 2);
+  const t1 = r.tests.find(t => t.code === "T1"), t2 = r.tests.find(t => t.code === "T2");
+  assert.equal(t1.val.longDescription_ru, "RU текст");
+  assert.equal(t1.val.media1, "https://example.com/a.jpg");
+  assert.equal(t2.val.publish, "TRUE", "the richer duplicate row is used");
+  assert.equal(t2.val.longDescription_en, "EN 2");
+  assert.ok(r.warnings.some(w => w.includes("T2") && w.includes("дважды")));
+});
+
+test("missing translations and bad media links are reported; site JSON carries _ru/_en and media", () => {
+  const r = L.buildFromExcel(sheetsV2(), F);
+  const tests = new Map(r.tests.map(t => [t.code, t]));
+  const t1 = tests.get("T1");
+  assert.ok(L.missingTranslations(t1, F).includes("longDescription_en"));
+  assert.ok(!L.missingTranslations(t1, F).includes("longDescription_ru"));
+  const chk = (id) => L.CHECKS.find(c => c.id === id);
+  assert.equal(chk("translation-missing").fn(t1, F), true);
+  t1.val.media2 = "ftp://bad";
+  assert.equal(chk("media-bad").fn(t1, F), true);
+  const web = L.buildWebJson(tests, F, r.dicts, S);
+  const rec = web.tests.find(x => x.code === "T1");
+  assert.equal(rec.longDescription_ru, "RU текст");
+  assert.equal(rec.media1, "https://example.com/a.jpg");
+  assert.equal(rec.longDescription_en, "");
+});
+
+/* ---- Column filters and sorting (24.11.2026) ---- */
+test("column filters: text contains / not contains / empty, numbers, choices", () => {
+  const dicts = { sectionid: [[5, "Klīniskā ķīmija"], [4, "Hematoloģija"]] };
+  const t = { code: "ALT", sl: { name: "Alanīnaminotransferāze", sectionid: 5, fin_price2: 3.3, catalog: true, timesolve: null }, val: { publish: "AKC" } };
+  const fm = L.fieldMap(F);
+  assert.equal(L.matchCol(t, fm.name, "amino", dicts), true);
+  assert.equal(L.matchCol(t, fm.name, "!amino", dicts), false);
+  assert.equal(L.matchCol(t, L.CODE_FIELD, "al", dicts), true);
+  assert.equal(L.matchCol(t, fm.sectionid, "5", dicts), true, "dictionary columns filter by the chosen id");
+  assert.equal(L.matchCol(t, fm.fin_price2, ">3", dicts), true);
+  assert.equal(L.matchCol(t, fm.fin_price2, "1–3", dicts), false);
+  assert.equal(L.matchCol(t, fm.fin_price2, "3,3", dicts), true);
+  assert.equal(L.matchCol(t, fm.fin_price2, ">", dicts), true, "unfinished number filter does not hide rows");
+  assert.equal(L.matchCol(t, fm.timesolve, "=", dicts), true);
+  assert.equal(L.matchCol(t, fm.timesolve, "!=", dicts), false);
+  assert.equal(L.matchCol(t, fm.publish, "AKC", dicts), true);
+  assert.equal(L.matchCol(t, fm.catalog, "FALSE", dicts), false);
+  assert.equal(L.matchCol(t, fm.catalog, "EMPTY", dicts), false);
+});
+
+test("column sort: numbers numerically, text by Latvian alphabet, empty values last in both directions", () => {
+  const fm = L.fieldMap(F);
+  const mk = (code, name, p) => ({ code, sl: { name, fin_price2: p }, val: {} });
+  const list = [mk("A", "Čūska", 10), mk("B", "Cits", 9.5), mk("C", "", null), mk("D", "Zeta", 100)];
+  const codes = (k, dir) => list.slice().sort(L.compareBy(fm[k], dir, {})).map(t => t.code).join("");
+  assert.equal(codes("fin_price2", 1), "BADC");
+  assert.equal(codes("fin_price2", -1), "DABC");
+  assert.equal(codes("name", 1), "BADC", "C before Č in Latvian order");
+  assert.equal(codes("name", -1), "DABC");
+});

@@ -5,6 +5,7 @@ const EDIT_LABEL = { none: "Никто", editor: "Редактор", admin: "А�
 
 // k: technical key, l: label, o: owner, t: type, web: goes to site JSON, jk: key in site JSON,
 // req: required value (no empty), wreq: required for published tests, price: price field
+// g: group — smartlis | price | catalog | web (LV) | web_ru | web_en | media; tr: LV field this one translates
 const DEFAULT_FIELDS = [
   { k: "name", l: "Testa nosaukums", g: "smartlis", o: "smartlis", t: "text", web: 1, e: "editor" },
   { k: "launch", l: "Launch (sastāvs)", g: "smartlis", o: "smartlis", t: "text", web: 1, e: "none" },
@@ -47,6 +48,27 @@ const DEFAULT_FIELDS = [
   { k: "relatedLisInfo", l: "Saistītās analīzes (4 kodi)", g: "web", o: "catalog", t: "text", web: 1, e: "editor" },
   { k: "metaTitle", l: "Meta virsraksts", g: "web", o: "catalog", t: "text", web: 1, wreq: 1, jk: "analizes-meta-virsraksts", e: "editor" },
   { k: "metaDescription", l: "Meta apraksts", g: "web", o: "catalog", t: "long", web: 1, wreq: 1, jk: "analizes-meta-apraksts", e: "editor" },
+  { k: "longDescription_ru", l: "RU · Īsais apraksts", g: "web_ru", o: "catalog", t: "long", web: 1, tr: "longDescription", e: "editor" },
+  { k: "description1Title_ru", l: "RU · Izvēlne 1 — virsraksts", g: "web_ru", o: "catalog", t: "text", web: 1, tr: "description1Title", e: "editor" },
+  { k: "description1_ru", l: "RU · Izvēlne 1 — teksts", g: "web_ru", o: "catalog", t: "long", web: 1, tr: "description1", e: "editor" },
+  { k: "description2Title_ru", l: "RU · Izvēlne 2 — virsraksts", g: "web_ru", o: "catalog", t: "text", web: 1, tr: "description2Title", e: "editor" },
+  { k: "description2_ru", l: "RU · Izvēlne 2 — teksts", g: "web_ru", o: "catalog", t: "long", web: 1, tr: "description2", e: "editor" },
+  { k: "description3Title_ru", l: "RU · Izvēlne 3 — virsraksts", g: "web_ru", o: "catalog", t: "text", web: 1, tr: "description3Title", e: "editor" },
+  { k: "description3_ru", l: "RU · Izvēlne 3 — teksts", g: "web_ru", o: "catalog", t: "long", web: 1, tr: "description3", e: "editor" },
+  { k: "description4Title_ru", l: "RU · Izvēlne 4 — virsraksts", g: "web_ru", o: "catalog", t: "text", web: 1, tr: "description4Title", e: "editor" },
+  { k: "description4_ru", l: "RU · Izvēlne 4 — garais teksts", g: "web_ru", o: "catalog", t: "long", web: 1, tr: "description4", e: "editor" },
+  { k: "longDescription_en", l: "EN · Īsais apraksts", g: "web_en", o: "catalog", t: "long", web: 1, tr: "longDescription", e: "editor" },
+  { k: "description1Title_en", l: "EN · Izvēlne 1 — virsraksts", g: "web_en", o: "catalog", t: "text", web: 1, tr: "description1Title", e: "editor" },
+  { k: "description1_en", l: "EN · Izvēlne 1 — teksts", g: "web_en", o: "catalog", t: "long", web: 1, tr: "description1", e: "editor" },
+  { k: "description2Title_en", l: "EN · Izvēlne 2 — virsraksts", g: "web_en", o: "catalog", t: "text", web: 1, tr: "description2Title", e: "editor" },
+  { k: "description2_en", l: "EN · Izvēlne 2 — teksts", g: "web_en", o: "catalog", t: "long", web: 1, tr: "description2", e: "editor" },
+  { k: "description3Title_en", l: "EN · Izvēlne 3 — virsraksts", g: "web_en", o: "catalog", t: "text", web: 1, tr: "description3Title", e: "editor" },
+  { k: "description3_en", l: "EN · Izvēlne 3 — teksts", g: "web_en", o: "catalog", t: "long", web: 1, tr: "description3", e: "editor" },
+  { k: "description4Title_en", l: "EN · Izvēlne 4 — virsraksts", g: "web_en", o: "catalog", t: "text", web: 1, tr: "description4Title", e: "editor" },
+  { k: "description4_en", l: "EN · Izvēlne 4 — garais teksts", g: "web_en", o: "catalog", t: "long", web: 1, tr: "description4", e: "editor" },
+  { k: "media1", l: "Attēls 1 (URL)", g: "media", o: "catalog", t: "url", web: 1, e: "editor" },
+  { k: "media2", l: "Attēls 2 (URL)", g: "media", o: "catalog", t: "url", web: 1, e: "editor" },
+  { k: "media3", l: "Attēls 3 (URL)", g: "media", o: "catalog", t: "url", web: 1, e: "editor" },
 ];
 
 const BOOL_FIELDS = ["active", "order", "bill", "report", "catalog"];
@@ -65,6 +87,22 @@ function editLevel(f) {
   const d = DEFAULT_FIELDS.find(x => x.k === f.k);
   if (d && d.e) return d.e;
   return f.o === "smartlis" ? "none" : "editor";
+}
+// Site content groups: LV texts, translations, media
+const isWebGroup = (f) => !!f && (f.g === "web" || f.g === "web_ru" || f.g === "web_en" || f.g === "media");
+const LANGS = [["web_ru", "RU"], ["web_en", "EN"]];
+// Registry stored in the database wins; defaults that appeared later (new SSoT columns) are added at their default place
+function mergeFields(stored, defaults) {
+  if (!Array.isArray(stored) || !stored.length) return defaults.map(f => ({ ...f }));
+  const out = stored.map(f => ({ ...f }));
+  const have = new Set(out.map(f => f.k));
+  defaults.forEach((d, i) => {
+    if (have.has(d.k)) { const f = out.find(x => x.k === d.k); for (const p of ["g", "tr", "t"]) if (f[p] === undefined && d[p] !== undefined) f[p] = d[p]; return; }
+    let at = out.length;
+    for (let j = i - 1; j >= 0; j--) { const idx = out.findIndex(x => x.k === defaults[j].k); if (idx >= 0) { at = idx + 1; break; } }
+    out.splice(at, 0, { ...d }); have.add(d.k);
+  });
+  return out;
 }
 const hasOwn = (o, k) => !!o && Object.prototype.hasOwnProperty.call(o, k);
 // Current value of a field: catalog fields from val; SmartLIS fields from val if edited, else from SmartLIS
@@ -358,6 +396,12 @@ function missingWebContent(t, fields) {
   return fields.filter(f => f.wreq && isEmpty(t.val ? t.val[f.k] : null)).map(f => f.k);
 }
 
+// Translation fields that are empty while their LV original is filled
+function missingTranslations(t, fields) {
+  const v = t.val || {};
+  return fields.filter(f => f.tr && !isEmpty(v[f.tr]) && isEmpty(v[f.k])).map(f => f.k);
+}
+
 const CHECKS = [
   { id: "conflict", sev: "bad", l: "Конфликт: поле изменили и в каталоге, и в SmartLIS", fn: (t) => Object.keys(conflictsOf(t)).length > 0 },
   { id: "catalog-empty", sev: "bad", l: "Katalogā не заполнено (нужно да/нет)", fn: (t) => !(t.meta && t.meta.missing) && isEmpty(cv(t, "catalog")) },
@@ -366,6 +410,9 @@ const CHECKS = [
   { id: "catalog-vs-publish", sev: "warn", l: "Katalogā и публикация на сайте расходятся", fn: (t) => !(t.meta && t.meta.missing) && !isEmpty(cv(t, "catalog")) && ((norm(t.val.catalog) === "TRUE") !== (norm(t.val.publish) === "TRUE")) },
   { id: "publish-empty", sev: "info", l: "Решение о публикации не принято", fn: (t) => !(t.meta && t.meta.missing) && isEmpty(t.val && t.val.publish) },
   { id: "no-material", sev: "info", l: "Активный тест без материала", fn: (t) => !(t.meta && t.meta.missing) && t.sl && t.sl.active === true && isEmpty(cv(t, "sampleid")) },
+  { id: "translation-missing", sev: "info", l: "Опубликован, LV-текст есть, нет перевода RU или EN", fn: (t, F) => norm(t.val && t.val.publish) === "TRUE" && missingTranslations(t, F).length > 0 },
+  { id: "media-bad", sev: "warn", l: "Ссылка на изображение не похожа на https-адрес", fn: (t, F) => F.some(f => f.t === "url" && !isEmpty(t.val && t.val[f.k]) && !/^https:\/\/\S+$/i.test(String(t.val[f.k]).trim())) },
+  { id: "paytype-odd", sev: "info", l: "Apmaksa: нестандартное значение (не NVD / M / GOV)", fn: (t) => !(t.meta && t.meta.missing) && !isEmpty(cv(t, "paytype")) && !["NVD", "M", "GOV"].includes(norm(cv(t, "paytype")).toUpperCase()) },
   { id: "missing", sev: "info", l: "Нет в последней выгрузке SmartLIS", fn: (t) => !!(t.meta && t.meta.missing) },
 ];
 
@@ -385,9 +432,83 @@ function seoDuplicates(tests) {
   return Object.keys(by).filter(c => by[c].length > 1).map(c => ({ url: c, codes: by[c] }));
 }
 
+/* ---------- Catalog table: column values, filters, sorting ---------- */
+const CODE_FIELD = { k: "code", l: "Kods", t: "text", g: "smartlis" };
+const colRaw = (t, k) => (k === "code" ? t.code : cv(t, k));
+// What the user sees in a cell (and what text filters match against)
+function colText(t, f, dicts) {
+  const v = colRaw(t, f.k);
+  if (isEmpty(v)) return "";
+  if (f.t === "dict") return dictName(dicts, f.k, v);
+  if (f.t === "bool") return norm(v) === "TRUE" ? "Jā" : "Nē";
+  if (f.t === "publish") { const n = norm(v); return n === "TRUE" ? "Jā" : n === "FALSE" ? "Nē" : n; }
+  return String(v);
+}
+// Filter kind for a column: choice (select from values) | num (range) | text (contains)
+const filterKind = (f) => (["dict", "bool", "publish"].includes(f.t) ? "choice" : f.t === "num" ? "num" : "text");
+// Choice options: [value, label]; "EMPTY" = no value
+function choiceOptions(f, dicts) {
+  if (f.t === "bool") return [["TRUE", "Jā"], ["FALSE", "Nē"], ["EMPTY", "(пусто)"]];
+  if (f.t === "publish") return [["TRUE", "Jā"], ["AKC", "AKC"], ["FALSE", "Nē"], ["EMPTY", "Не решено"]];
+  const opts = (dicts[f.k] || []).map(([id, n]) => [norm(id), String(n)]).sort((a, b) => a[1].localeCompare(b[1], "lv"));
+  return [...opts, ["EMPTY", "(пусто)"]];
+}
+// Number filter: "5", ">5", ">=5", "<5", "<=5", "5-10" / "5–10" / "5..10"; comma as decimal point is fine
+function parseNumFilter(s) {
+  const x = String(s).trim().replace(/,/g, ".").replace(/\s+/g, "");
+  let m;
+  if ((m = x.match(/^(>=|<=|>|<|=)?(-?\d+(?:\.\d+)?)$/))) {
+    const op = m[1] || "=", n = Number(m[2]);
+    return (v) => (op === ">" ? v > n : op === ">=" ? v >= n : op === "<" ? v < n : op === "<=" ? v <= n : v === n);
+  }
+  if ((m = x.match(/^(-?\d+(?:\.\d+)?)(?:-|–|\.\.)(-?\d+(?:\.\d+)?)$/))) { const a = Number(m[1]), b = Number(m[2]); return (v) => v >= Math.min(a, b) && v <= Math.max(a, b); }
+  return null;
+}
+// One column filter. Everywhere: "=" = empty, "!=" = not empty. Text: contains, "!word" = does not contain.
+function matchCol(t, f, filter, dicts) {
+  const q = String(filter ?? "").trim();
+  if (!q) return true;
+  const raw = colRaw(t, f.k);
+  if (q === "=" || q === "EMPTY") return isEmpty(raw);
+  if (q === "!=") return !isEmpty(raw);
+  const kind = filterKind(f);
+  if (kind === "choice") return !isEmpty(raw) && norm(raw) === q;
+  if (kind === "num") {
+    const pred = parseNumFilter(q);
+    if (!pred) return true;                // unfinished input: do not hide everything while typing
+    if (isEmpty(raw)) return false;
+    const n = Number(norm(raw)); return !Number.isNaN(n) && pred(n);
+  }
+  const text = colText(t, f, dicts).toLowerCase();
+  if (q.startsWith("!") && q.length > 1) return !text.includes(q.slice(1).toLowerCase());
+  return text.includes(q.toLowerCase());
+}
+// Sort by one column; empty values always go last; ties by code
+function compareBy(f, dir, dicts) {
+  const num = f.t === "num";
+  const key = (t) => { const raw = colRaw(t, f.k); if (isEmpty(raw)) return null; return num ? Number(norm(raw)) : colText(t, f, dicts); };
+  return (a, b) => {
+    const x = key(a), y = key(b);
+    if (x === null || y === null) return x === y ? a.code.localeCompare(b.code) : x === null ? 1 : -1;
+    const c = num ? x - y : String(x).localeCompare(String(y), "lv", { numeric: true, sensitivity: "base" });
+    return c ? c * dir : a.code.localeCompare(b.code);
+  };
+}
+
 /* ---------- Excel migration (current SharePoint workbook) ---------- */
 // sheets: {Catalog: rows[][], Dictionary: rows[][], DB_Import: rows[][] (optional)}
-const EXCEL_MAP = { "publish": "publish", "Veterinary": "Veterinary", "Referents": "Referents", "codename": "codename", "title": "title", "longDescription": "longDescription", "description1Title": "description1Title", "description1": "description1", "description2Title": "description2Title", "description2": "description2", "description3Title": "description3Title", "description3": "description3", "description4Title": "description4Title", "description4": "description4", "relatedLisInfo": "relatedLisInfo", "analizes-meta-apraksts": "metaDescription", "analizes-meta-virsraksts": "metaTitle" };
+// Catalog-owned fields are read from the column with the same technical name (row 2), or with the site JSON key (jk)
+const EXCEL_ALIASES = { publish: ["publish"], animalSpecies: ["animalSpecies"] };
+function catalogFieldsInSheet(fields, col) {
+  const out = [];
+  for (const f of fields.filter(f => f.o === "catalog")) {
+    const names = [f.k, f.jk, ...(EXCEL_ALIASES[f.k] || [])].filter(Boolean);
+    const h = names.find(n => col[n] !== undefined);
+    if (h !== undefined) out.push([f, col[h]]);
+  }
+  return out;
+}
+const filledCount = (r, from) => r.slice(from).filter(c => !isEmpty(c)).length;
 
 function buildFromExcel(sheets, fields) {
   const res = { errors: [], warnings: [], tests: [], dicts: {} };
@@ -416,12 +537,25 @@ function buildFromExcel(sheets, fields) {
   if (!dbRows) res.warnings.push("Лист DB_Import не найден: значения SmartLIS взяты из Catalog. Сделайте импорт из SmartLIS сразу после переноса.");
 
   const now = new Date().toISOString();
-  const seenRow = {};
+  const catCols = catalogFieldsInSheet(fields, col);
+  const firstCatalogCol = Math.min(...catCols.map(c => c[1]), tech.length);
+  const known = new Set([...fields.map(f => f.k), ...fields.map(f => f.jk).filter(Boolean), "code", "publish"]);
+  const unknown = tech.filter(h => h && !known.has(h));
+  if (unknown.length) res.warnings.push(`Колонки Catalog без поля в реестре (не перенесены): ${unknown.join(", ")}. Добавьте поле в «Настройки → Реестр полей», если оно нужно.`);
+  // Duplicate codes: keep the row with more filled catalog/site cells, report the other one
+  const pick = {};
+  for (let ri = 2; ri < cat.length; ri++) {
+    const code = String(cat[ri][col.code] ?? "").trim(); if (!code) continue;
+    const score = filledCount(cat[ri], firstCatalogCol);
+    if (!pick[code]) { pick[code] = { ri, score }; continue; }
+    const prev = pick[code]; const keep = score > prev.score ? ri : prev.ri; const drop = keep === ri ? prev.ri : ri;
+    res.warnings.push(`Код ${code} дважды на листе Catalog (строки ${prev.ri + 1} и ${ri + 1}): взята строка ${keep + 1} (в ней больше заполненных полей каталога), строку ${drop + 1} удалите в Excel.`);
+    pick[code] = { ri: keep, score: Math.max(score, prev.score) };
+  }
   for (let ri = 2; ri < cat.length; ri++) {
     const r = cat[ri];
     const code = String(r[col.code] ?? "").trim(); if (!code) continue;
-    if (seenRow[code]) { res.warnings.push(`Код ${code} дважды на листе Catalog (строки ${seenRow[code]} и ${ri + 1}): взята строка ${seenRow[code]}, удалите дубль в Excel.`); continue; }
-    seenRow[code] = ri + 1;
+    if (pick[code].ri !== ri) continue;
     const t = { code, sl: {}, val: {}, base: {}, meta: { conflicts: {} } };
     const db = dbRows ? dbRows.get(code) : null;
     if (dbRows && !db) t.meta.missing = true;
@@ -444,18 +578,17 @@ function buildFromExcel(sheets, fields) {
       t.val[f.k] = isEmpty(v) && f.k !== "catalog" ? t.sl[f.k] : v;
       t.base[f.k] = t.sl[f.k];
     }
-    for (const h of Object.keys(EXCEL_MAP)) {
-      if (col[h] === undefined) continue;
-      let v = r[col[h]];
-      if (EXCEL_MAP[h] === "publish") { const n = norm(v); v = n === "" ? null : n; }
-      else v = isEmpty(v) ? null : String(v);
-      if (v !== null) t.val[EXCEL_MAP[h]] = v;
+    for (const [f, ci] of catCols) {
+      let v = r[ci];
+      if (f.k === "publish") { const n = norm(v); v = n === "" ? null : n; }
+      else v = isEmpty(v) ? null : String(v).trim();
+      if (v !== null) t.val[f.k] = v;
     }
-    if (animal >= 0 && !isEmpty(r[animal])) t.val.animalSpecies = String(r[animal]);
+    if (animal >= 0 && t.val.animalSpecies === undefined && !isEmpty(r[animal])) t.val.animalSpecies = String(r[animal]).trim();
     t.meta.lastImport = now;
     res.tests.push(t);
   }
   return res;
 }
 
-if (typeof module !== "undefined") module.exports = { isSl, editLevel, cv, hasOwn, EDIT_LABEL, DEFAULT_FIELDS, DEFAULT_SETTINGS, CHECKS, norm, same, isEmpty, parseCell, parseCsv, decodeUtf8, planImport, applyPatch, planExport, buildWebJson, pendingFields, conflictsOf, chunkOf, valueOf, dictName, dictDuplicates, seoDuplicates, missingWebContent, buildFromExcel, fieldMap, HIST_CAP, CHUNKS };
+if (typeof module !== "undefined") module.exports = { isSl, editLevel, cv, hasOwn, EDIT_LABEL, DEFAULT_FIELDS, DEFAULT_SETTINGS, CHECKS, norm, same, isEmpty, parseCell, parseCsv, decodeUtf8, planImport, applyPatch, planExport, buildWebJson, pendingFields, conflictsOf, chunkOf, valueOf, dictName, dictDuplicates, seoDuplicates, missingWebContent, buildFromExcel, fieldMap, HIST_CAP, CHUNKS, mergeFields, isWebGroup, LANGS, missingTranslations, CODE_FIELD, colText, filterKind, choiceOptions, parseNumFilter, matchCol, compareBy };
