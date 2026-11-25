@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="lv">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -138,6 +138,9 @@ tr.jump td { background: var(--warn-soft, #fdf3e1); }
 .btn.danger { background: var(--bad); border-color: var(--bad); color: #fff; }
 .rolepick { margin-bottom: 8px; }
 .rolepick select { width: 100%; }
+.langs { display: flex; gap: 4px; margin-bottom: 8px; }
+.langs button { font: inherit; font-size: 12px; padding: 2px 10px; border: 1px solid var(--line); border-radius: 4px; background: var(--surface); color: var(--ink); cursor: pointer; }
+.langs button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
 tr.group td { background: var(--accent-soft); color: var(--accent); font-weight: 600; font-size: 13px; }
 td.stripe { width: 4px; padding: 0; }
 td.stripe.bad { background: var(--bad); } td.stripe.warn { background: var(--warn); } td.stripe.acc { background: var(--accent); } td.stripe.info { background: var(--info); }
@@ -202,20 +205,20 @@ pre.json { margin: 0; max-height: 360px; overflow: auto; background: var(--surfa
 </head>
 <body>
 <div class="app">
-  <nav class="nav" id="nav" aria-label="Разделы">
-    <div class="brand"><b>Testu katalogs</b><span>Centrālā Laboratorija · прототип</span></div>
-    <button data-go="catalog"><span>Каталог</span><span class="badge" id="nb-catalog">—</span></button>
-    <button data-go="export"><span>Отправка в SmartLIS</span><span class="badge" id="nb-export">—</span></button>
-    <button data-go="import"><span>Импорт из SmartLIS</span><span></span></button>
-    <button data-go="site"><span>Сайт (Web JSON)</span><span class="badge" id="nb-site">—</span></button>
-    <button data-go="checks"><span>Проверки</span><span class="badge" id="nb-checks">—</span></button>
-    <button data-go="log"><span>Журнал</span><span></span></button>
-    <button data-go="setup"><span>Настройки</span><span></span></button>
+  <nav class="nav" id="nav" aria-label="Sadaļas" data-tr-aria="Разделы">
+    <div class="brand"><b>Testu katalogs</b><span>Centrālā Laboratorija · <span data-tr="прототип">prototips</span></span></div>
+    <button data-go="catalog"><span data-tr="Каталог">Katalogs</span><span class="badge" id="nb-catalog">—</span></button>
+    <button data-go="export"><span data-tr="Отправка в SmartLIS">Nosūtīšana uz SmartLIS</span><span class="badge" id="nb-export">—</span></button>
+    <button data-go="import"><span data-tr="Импорт из SmartLIS">Imports no SmartLIS</span><span></span></button>
+    <button data-go="site"><span data-tr="Сайт (Web JSON)">Vietne (Web JSON)</span><span class="badge" id="nb-site">—</span></button>
+    <button data-go="checks"><span data-tr="Проверки">Pārbaudes</span><span class="badge" id="nb-checks">—</span></button>
+    <button data-go="log"><span data-tr="Журнал">Žurnāls</span><span></span></button>
+    <button data-go="setup"><span data-tr="Настройки">Iestatījumi</span><span></span></button>
     <div class="foot" id="navfoot"></div>
   </nav>
   <main class="main" id="main">
     <div id="banner"></div>
-    <section class="view" id="view"><div class="empty">Загружаю каталог…</div></section>
+    <section class="view" id="view"><div class="empty" data-tr="Загружаю каталог…">Ielādēju katalogu…</div></section>
   </main>
 </div>
 <div id="drawer"></div>
@@ -224,6 +227,7 @@ pre.json { margin: 0; max-height: 360px; overflow: auto; background: var(--surfa
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="logic.js"></script>
+<script src="i18n.js"></script>
 <script>
 "use strict";
 /* ================= state ================= */
@@ -268,6 +272,7 @@ let db = null, user = null, downloads = null, seedCache = null;
 const subs = { chunks: {}, hist: {} };
 
 loadViewPrefs();
+applyStaticText();
 const F = () => S.fields;
 const FM = () => fieldMap(S.fields);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -305,7 +310,7 @@ const canWrite = () => (S.mode === "live" || S.mode === "local") && S.perms.writ
 // May the current viewer edit this field? Prototype: client-side check; the production app enforces it on the server.
 function canEditField(f) { return canWrite() && canEditWith(f, myRoles()); }
 function canDo(action) { return canWrite() && canDoWith(action, myRoles()); }
-const roleHint = (action) => `Доступно ролям: ${["admin", ...ACTIONS[action].roles].map(r => ROLES[r].l).join(", ")}.`;
+const roleHint = (action) => `${tr("Доступно ролям:")} ${["admin", ...ACTIONS[action].roles].map(r => tr(ROLES[r].l)).join(", ")}.`;
 
 function toast(msg, bad) {
   const el = document.createElement("div"); el.className = "toast" + (bad ? " bad" : ""); el.textContent = msg;
@@ -315,11 +320,11 @@ function toast(msg, bad) {
 /* ================= derived ================= */
 function statusOf(t) {
   const out = [];
-  if (Object.keys(conflictsOf(t)).length) out.push(["bad", "Конфликт"]);
-  if (t.meta && t.meta.missing) out.push(["plain", "Нет в SmartLIS"]);
+  if (Object.keys(conflictsOf(t)).length) out.push(["bad", tr("Конфликт")]);
+  if (t.meta && t.meta.missing) out.push(["plain", tr("Нет в SmartLIS")]);
   const pf = pendingFields(t, F());
-  if (pf.length) out.push(t.meta && t.meta.lastExport ? ["info", "Отправлено, ждёт подтверждения"] : ["acc", "К отправке"]);
-  if (t.meta && t.meta.addedAt && t.meta.lastImport === t.meta.addedAt) out.push(["good", "Новый"]);
+  if (pf.length) out.push(t.meta && t.meta.lastExport ? ["info", tr("Отправлено, ждёт подтверждения")] : ["acc", tr("К отправке")]);
+  if (t.meta && t.meta.addedAt && t.meta.lastImport === t.meta.addedAt) out.push(["good", tr("Новый")]);
   return out;
 }
 function stripeOf(t) {
@@ -421,12 +426,12 @@ async function boot() {
     S.dicts = c.dicts || {};
     if (S.mode !== "live") { S.mode = "live"; rebuildFromChunks(); }
     scheduleRender();
-  }, err => { clearTimeout(timer); toast("Хранилище недоступно: " + err.code + ". Работаю со снимком, правки не сохранятся.", true); loadSeed().then(seed => { useSeed(seed, "local"); renderAll(); }); });
+  }, err => { clearTimeout(timer); toast(tr("Хранилище недоступно: ") + err.code + tr(". Работаю со снимком, правки не сохранятся."), true); loadSeed().then(seed => { useSeed(seed, "local"); renderAll(); }); });
 
   db.collection("chunks").onSnapshot(snap => {
     for (const d of snap.docs) subs.chunks[d.id] = d.data();
     if (S.mode === "live") { rebuildFromChunks(); scheduleRender(); }
-  }, err => toast("Не удалось получить данные тестов: " + err.code, true));
+  }, err => toast(tr("Не удалось получить данные тестов: ") + err.code, true));
   db.collection("hist").onSnapshot(snap => {
     for (const d of snap.docs) subs.hist[d.id] = d.data();
     if (S.mode === "live") { rebuildFromChunks(); scheduleRender(); }
@@ -454,7 +459,7 @@ async function commit(patches, histAdd, event) {
     if (event) S.events.unshift({ id: "local" + Date.now(), ...event });
     renderAll(); return true;
   }
-  if (S.mode !== "live") { toast("Сначала начните работу с данными (баннер сверху).", true); return false; }
+  if (S.mode !== "live") { toast(tr("Сначала начните работу с данными (баннер сверху)."), true); return false; }
   const byChunk = {};
   for (const code of codes) { const c = chunkOf(code); (byChunk[c] = byChunk[c] || {})[code] = patches[code]; }
   const histByChunk = {};
@@ -466,7 +471,7 @@ async function commit(patches, histAdd, event) {
   try {
     let i = 0;
     for (const c of chunkIds) {
-      setBusy("Сохраняю", i++, chunkIds.length);
+      setBusy(tr("Сохраняю"), i++, chunkIds.length);
       if (byChunk[c]) await withRetry(() => db.doc("chunks/" + c).update({ tests: byChunk[c] }));
       if (histByChunk[c]) await withRetry(() => db.doc("hist/" + c).update({ h: histByChunk[c] }));
     }
@@ -474,24 +479,24 @@ async function commit(patches, histAdd, event) {
     setBusy(null); return true;
   } catch (e) {
     setBusy(null);
-    toast(e && e.code === "invalid_argument" ? "Нет прав на изменение данных. Попросите владельца дать вам роль Contributor." : "Не удалось сохранить: " + (e && (e.message || e.code)), true);
+    toast(e && e.code === "invalid_argument" ? tr("Нет прав на изменение данных. Попросите владельца дать вам роль Contributor.") : tr("Не удалось сохранить: ") + (e && (e.message || e.code)), true);
     return false;
   }
 }
 
 async function initStore(tests, dicts, source) {
-  if (!db) { toast("Хранилище недоступно.", true); return; }
+  if (!db) { toast(tr("Хранилище недоступно."), true); return; }
   const byChunk = {}; for (const id of CHUNK_IDS) byChunk[id] = {};
   for (const t of tests) byChunk[chunkOf(t.code)][t.code] = { sl: t.sl || {}, val: t.val || {}, base: t.base || {}, meta: { conflicts: {}, ...(t.meta || {}) } };
   const now = new Date().toISOString();
   try {
     let i = 0;
-    for (const id of CHUNK_IDS) { setBusy("Записываю каталог", i++, CHUNK_IDS.length * 2); await withRetry(() => db.doc("chunks/" + id).set({ tests: byChunk[id] })); }
-    for (const id of CHUNK_IDS) { setBusy("Записываю каталог", i++, CHUNK_IDS.length * 2); await withRetry(() => db.doc("hist/" + id).set({ h: {} })); }
+    for (const id of CHUNK_IDS) { setBusy(tr("Записываю каталог"), i++, CHUNK_IDS.length * 2); await withRetry(() => db.doc("chunks/" + id).set({ tests: byChunk[id] })); }
+    for (const id of CHUNK_IDS) { setBusy(tr("Записываю каталог"), i++, CHUNK_IDS.length * 2); await withRetry(() => db.doc("hist/" + id).set({ h: {} })); }
     await withRetry(() => db.doc("config/main").set({ fields: S.fields, settings: S.settings, dicts, initializedAt: now, source }));
-    await withRetry(() => db.collection("events").add({ t: now, u: S.me, r: S.role, kind: "init", title: "Каталог загружен", summary: { tests: tests.length, source } }));
-    setBusy(null); toast(`Каталог загружен: ${tests.length} тестов.`);
-  } catch (e) { setBusy(null); toast("Не удалось записать каталог: " + (e && (e.message || e.code)), true); }
+    await withRetry(() => db.collection("events").add({ t: now, u: S.me, r: S.role, kind: "init", title: tr("Каталог загружен"), summary: { tests: tests.length, source } }));
+    setBusy(null); toast(`${tr("Каталог загружен:")} ${tests.length} ${tr("тестов.")}`);
+  } catch (e) { setBusy(null); toast(tr("Не удалось записать каталог: ") + (e && (e.message || e.code)), true); }
 }
 
 function setBusy(label, i, n) {
@@ -506,7 +511,7 @@ async function resolveNames(ids) {
   if (!need.length || !user || !user.profiles) return;
   try { const ps = await user.profiles(need); for (const id of need) S.names[id] = (ps && ps[id] && ps[id].name) || ""; scheduleRender(); } catch (e) {}
 }
-const nameOf = (id) => S.names[id] || (id === S.me ? "Вы" : "Пользователь");
+const nameOf = (id) => S.names[id] || (id === S.me ? tr("Вы") : tr("Пользователь"));
 
 /* ================= render: shell ================= */
 function renderAll() {
@@ -516,10 +521,11 @@ function renderAll() {
   $("#nb-site").textContent = c.pub;
   const nc = $("#nb-checks"); nc.textContent = c.bad; nc.className = "badge" + (c.bad ? " bad" : "");
   document.querySelectorAll("#nav button[data-go]").forEach(b => b.setAttribute("aria-current", b.dataset.go === S.view ? "page" : "false"));
-  const modeText = { live: "Общие данные · сохраняются", snapshot: `Снимок от ${S.snapshotInfo ? S.snapshotInfo.date : ""} · только просмотр`, local: "Без хранилища · правки до перезагрузки", loading: "Загрузка…" }[S.mode];
+  const modeText = { live: tr("Общие данные · сохраняются"), snapshot: `${tr("Снимок от")} ${S.snapshotInfo ? S.snapshotInfo.date : ""} ${tr("· только просмотр")}`, local: tr("Без хранилища · правки до перезагрузки"), loading: tr("Загрузка…") }[S.mode];
   const ar = allowedRoles();
-  $("#navfoot").innerHTML = `<div class="field rolepick"><label for="role-pick">Роль${ar.length > 1 ? " (как группа AD)" : ""}</label>
-    <select id="role-pick"${ar.length > 1 ? "" : " disabled"}>${ar.map(r => `<option value="${r}"${r === S.role ? " selected" : ""}>${esc(ROLES[r].l)}</option>`).join("")}</select></div>
+  $("#navfoot").innerHTML = `<div class="field rolepick"><label for="role-pick">${tr("Роль")}${ar.length > 1 ? tr(" (как группа AD)") : ""}</label>
+    <select id="role-pick"${ar.length > 1 ? "" : " disabled"}>${ar.map(r => `<option value="${r}"${r === S.role ? " selected" : ""}>${esc(tr(ROLES[r].l))}</option>`).join("")}</select></div>
+    <div class="langs" role="group" aria-label="Valoda / Язык"><button data-act="lang" data-l="lv" aria-pressed="${UI_LANG === "lv"}">LV</button><button data-act="lang" data-l="ru" aria-pressed="${UI_LANG === "ru"}">RU</button></div>
     <span>${esc(modeText)}</span><div id="busy"></div>`;
   renderBanner();
   const v = { catalog: viewCatalog, export: viewExport, import: viewImport, site: viewSite, checks: viewChecks, log: viewLog, setup: viewSetup }[S.view] || viewCatalog;
@@ -534,10 +540,10 @@ function renderBanner() {
   const el = $("#banner");
   if (S.mode === "snapshot") {
     const can = isAdminRole();
-    el.innerHTML = `<div class="banner snap"><p><b>Это снимок каталога от ${esc(S.snapshotInfo.date)}.</b> Общие данные ещё не созданы. ${can ? "Начните с этого снимка или перенесите актуальный Excel с SharePoint: после этого правки сохраняются и видны всем, у кого есть доступ." : "Владелец прототипа ещё не загрузил данные; пока доступен только просмотр."}</p>
-      ${can ? `<div class="row"><button class="btn" data-act="go" data-v="import">Перенести из Excel…</button><button class="btn primary" data-act="init-seed">Начать с этого снимка</button></div>` : ""}</div>`;
+    el.innerHTML = `<div class="banner snap"><p><b>${tr("Это снимок каталога от")} ${esc(S.snapshotInfo.date)}.</b> ${tr("Общие данные ещё не созданы.")} ${can ? tr("Начните с этого снимка или перенесите актуальный Excel с SharePoint: после этого правки сохраняются и видны всем, у кого есть доступ.") : tr("Владелец прототипа ещё не загрузил данные; пока доступен только просмотр.")}</p>
+      ${can ? `<div class="row"><button class="btn" data-act="go" data-v="import">${tr("Перенести из Excel…")}</button><button class="btn primary" data-act="init-seed">${tr("Начать с этого снимка")}</button></div>` : ""}</div>`;
   } else if (S.mode === "local") {
-    el.innerHTML = `<div class="banner local"><p><b>Хранилище недоступно.</b> Прототип работает на снимке от ${esc(S.snapshotInfo ? S.snapshotInfo.date : "")}; правки сохранятся только до перезагрузки страницы.</p></div>`;
+    el.innerHTML = `<div class="banner local"><p><b>${tr("Хранилище недоступно.")}</b> ${tr("Прототип работает на снимке от")} ${esc(S.snapshotInfo ? S.snapshotInfo.date : "")}${tr("; правки сохранятся только до перезагрузки страницы.")}</p></div>`;
   } else el.innerHTML = "";
 }
 
@@ -548,22 +554,22 @@ function sel(id, label, value, opts) {
 function headCell(f) {
   const on = S.sort.k === f.k; const arrow = on ? (S.sort.dir > 0 ? "↑" : "↓") : "↕";
   const sortName = on ? (S.sort.dir > 0 ? "ascending" : "descending") : "none";
-  return `<th class="${f.t === "num" ? "num" : ""}" aria-sort="${sortName}"><button class="th-sort${on ? " on" : ""}" data-sort="${esc(f.k)}" title="Сортировать: ${esc(f.l)}">${esc(f.l)} <span aria-hidden="true">${arrow}</span></button></th>`;
+  return `<th class="${f.t === "num" ? "num" : ""}" aria-sort="${sortName}"><button class="th-sort${on ? " on" : ""}" data-sort="${esc(f.k)}" title="${tr("Сортировать:")} ${esc(f.l)}">${esc(f.l)} <span aria-hidden="true">${arrow}</span></button></th>`;
 }
 function filterCell(f) {
   const v = S.cf[f.k] ?? "";
   const kind = filterKind(f);
   if (kind === "choice") {
     const opts = choiceOptions(f, S.dicts);
-    return `<th><select data-cf="${esc(f.k)}" aria-label="Фильтр: ${esc(f.l)}" class="${v ? "active" : ""}"><option value="">Все</option>${opts.map(([o, l]) => `<option value="${esc(o)}"${o === v ? " selected" : ""}>${esc(l)}</option>`).join("")}</select></th>`;
+    return `<th><select data-cf="${esc(f.k)}" aria-label="${tr("Фильтр:")} ${esc(f.l)}" class="${v ? "active" : ""}"><option value="">${tr("Все")}</option>${opts.map(([o, l]) => `<option value="${esc(o)}"${o === v ? " selected" : ""}>${esc(tr(l))}</option>`).join("")}</select></th>`;
   }
-  const ph = kind === "num" ? ">5, 3–10" : "содержит…";
-  const tip = kind === "num" ? "Число: 5, >5, <=10, 3–10. «=» — пусто, «!=» — заполнено." : "Текст содержит… «!слово» — не содержит, «=» — пусто, «!=» — заполнено.";
-  return `<th><input type="text" data-cf="${esc(f.k)}" value="${esc(v)}" placeholder="${ph}" title="${tip}" aria-label="Фильтр: ${esc(f.l)}" class="${String(v).trim() ? "active" : ""}"></th>`;
+  const ph = kind === "num" ? ">5, 3–10" : tr("содержит…");
+  const tip = kind === "num" ? tr("Число: 5, >5, <=10, 3–10. «=» — пусто, «!=» — заполнено.") : tr("Текст содержит… «!слово» — не содержит, «=» — пусто, «!=» — заполнено.");
+  return `<th><input type="text" data-cf="${esc(f.k)}" value="${esc(v)}" placeholder="${ph}" title="${tip}" aria-label="${tr("Фильтр:")} ${esc(f.l)}" class="${String(v).trim() ? "active" : ""}"></th>`;
 }
 function statusFilter() {
-  const o = [["", "Любой"], ["pending", "К отправке"], ["conflict", "Конфликт"], ["missing", "Нет в SmartLIS"], ["new", "Новые"], ["ok", "Без замечаний"]];
-  return `<select data-filter="status" aria-label="Фильтр: статус" class="${S.f.status ? "active" : ""}">${o.map(([v, l]) => `<option value="${v}"${v === S.f.status ? " selected" : ""}>${l}</option>`).join("")}</select>`;
+  const o = [["", tr("Любой")], ["pending", tr("К отправке")], ["conflict", tr("Конфликт")], ["missing", tr("Нет в SmartLIS")], ["new", tr("Новые")], ["ok", tr("Без замечаний")]];
+  return `<select data-filter="status" aria-label="${tr("Фильтр: статус")}" class="${S.f.status ? "active" : ""}">${o.map(([v, l]) => `<option value="${v}"${v === S.f.status ? " selected" : ""}>${l}</option>`).join("")}</select>`;
 }
 function bodyCell(t, f) {
   const raw = colRaw(t, f.k);
@@ -577,11 +583,11 @@ function bodyCell(t, f) {
   return `<td class="clip"${txt.length > 30 ? ` title="${esc(txt.slice(0, 500))}"` : ""}>${esc(short)}</td>`;
 }
 function colPicker() {
-  const groups = [["Основное", [CODE_FIELD, ...F().filter(f => f.g === "smartlis")]], ["Цены", F().filter(f => f.g === "price")], ["Каталог", F().filter(f => f.g === "catalog")], ["Сайт · LV", F().filter(f => f.g === "web")], ["Сайт · RU", F().filter(f => f.g === "web_ru")], ["Сайт · EN", F().filter(f => f.g === "web_en")], ["Изображения", F().filter(f => f.g === "media")]];
-  return `<div class="card colpick"><div class="row" style="justify-content:space-between"><h3>Колонки таблицы</h3>
-    <div class="row"><button class="btn sm" data-act="cols-default">Как по умолчанию</button><button class="btn sm" data-act="colpick">Готово</button></div></div>
+  const groups = [[tr("Основное"), [CODE_FIELD, ...F().filter(f => f.g === "smartlis")]], [tr("Цены"), F().filter(f => f.g === "price")], [tr("Каталог"), F().filter(f => f.g === "catalog")], [tr("Сайт · LV"), F().filter(f => f.g === "web")], [tr("Сайт · RU"), F().filter(f => f.g === "web_ru")], [tr("Сайт · EN"), F().filter(f => f.g === "web_en")], [tr("Изображения"), F().filter(f => f.g === "media")]];
+  return `<div class="card colpick"><div class="row" style="justify-content:space-between"><h3>${tr("Колонки таблицы")}</h3>
+    <div class="row"><button class="btn sm" data-act="cols-default">${tr("Как по умолчанию")}</button><button class="btn sm" data-act="colpick">${tr("Готово")}</button></div></div>
     <div class="colgrid">${groups.filter(g => g[1].length).map(([gl, fs]) => `<div><span class="lbl">${esc(gl)}</span>${fs.map(f => `<label class="row"><input type="checkbox" data-col="${esc(f.k)}"${S.cols.includes(f.k) ? " checked" : ""}${f.k === "code" ? " disabled" : ""}> ${esc(f.l)}</label>`).join("")}</div>`).join("")}</div>
-    <span class="lbl">Выбор колонок и сортировка запоминаются в этом браузере. Новая колонка добавляется справа.</span></div>`;
+    <span class="lbl">${tr("Выбор колонок и сортировка запоминаются в этом браузере. Новая колонка добавляется справа.")}</span></div>`;
 }
 function viewCatalog() {
   const list = filtered();
@@ -591,53 +597,53 @@ function viewCatalog() {
   const cols = S.cols.map(colField).filter(Boolean);
   const check = CHECKS.find(c => c.id === S.f.check);
   const editable = F().filter(f => canEditField(f) && ["publish", "bool", "dict", "text", "num"].includes(f.t) && !isWebGroup(f));
-  const bulk = S.selected.size ? `<div class="bulk"><b>Выбрано: ${S.selected.size}</b>
-      <select id="bulk-field" aria-label="Поле">${editable.map(f => `<option value="${f.k}">${esc(f.l)}</option>`).join("")}</select>
+  const bulk = S.selected.size ? `<div class="bulk"><b>${tr("Выбрано:")} ${S.selected.size}</b>
+      <select id="bulk-field" aria-label="${tr("Поле")}">${editable.map(f => `<option value="${f.k}">${esc(f.l)}</option>`).join("")}</select>
       <span id="bulk-value-wrap">${editable.length ? bulkValueInput(editable[0].k) : ""}</span>
-      <button class="btn primary" data-act="bulk-apply"${canWrite() ? "" : " disabled"}>Применить к ${S.selected.size}</button>
-      <button class="btn" data-act="bulk-clear">Снять выделение</button></div>` : "";
+      <button class="btn primary" data-act="bulk-apply"${canWrite() ? "" : " disabled"}>${tr("Применить к")} ${S.selected.size}</button>
+      <button class="btn" data-act="bulk-clear">${tr("Снять выделение")}</button></div>` : "";
   let rows = "", lastSec = null;
   for (const t of slice) {
     if (S.group) {
-      const sec = dictName(S.dicts, "sectionid", t.sl && t.sl.sectionid) || "Без секции";
+      const sec = dictName(S.dicts, "sectionid", t.sl && t.sl.sectionid) || tr("Без секции");
       if (sec !== lastSec) { rows += `<tr class="group"><td colspan="${cols.length + 3}">${esc(sec)}</td></tr>`; lastSec = sec; }
     }
     const st = statusOf(t);
     rows += `<tr class="click" data-open="${esc(t.code)}">
       <td class="stripe ${stripeOf(t)}"></td>
-      <td><input type="checkbox" data-sel="${esc(t.code)}" aria-label="Выбрать ${esc(t.code)}"${S.selected.has(t.code) ? " checked" : ""}></td>
+      <td><input type="checkbox" data-sel="${esc(t.code)}" aria-label="${tr("Выбрать")} ${esc(t.code)}"${S.selected.has(t.code) ? " checked" : ""}></td>
       ${cols.map(f => bodyCell(t, f)).join("")}
       <td>${st.map(([c, l]) => `<span class="chip ${c}">${esc(l)}</span>`).join(" ")}</td></tr>`;
   }
   const filterCount = Object.values(S.cf).filter(v => String(v ?? "").trim()).length + (S.f.status ? 1 : 0);
-  return `<div class="view-head"><div><h2>Каталог анализов</h2><p>${list.length} из ${S.tests.size} тестов. Нажмите на строку, чтобы открыть карточку теста. Заголовок колонки — сортировка, поле под ним — фильтр.</p></div>
-    <div class="legend"><span><i style="background:var(--accent)"></i>есть правки к отправке</span><span><i style="background:var(--info)"></i>отправлено, ждёт подтверждения</span><span><i style="background:var(--bad)"></i>конфликт</span><span><i style="background:var(--warn)"></i>нет в SmartLIS</span></div></div>
+  return `<div class="view-head"><div><h2>${tr("Каталог анализов")}</h2><p>${list.length} ${tr("из")} ${S.tests.size} ${tr("тестов. Нажмите на строку, чтобы открыть карточку теста. Заголовок колонки — сортировка, поле под ним — фильтр.")}</p></div>
+    <div class="legend"><span><i style="background:var(--accent)"></i>${tr("есть правки к отправке")}</span><span><i style="background:var(--info)"></i>${tr("отправлено, ждёт подтверждения")}</span><span><i style="background:var(--bad)"></i>${tr("конфликт")}</span><span><i style="background:var(--warn)"></i>${tr("нет в SmartLIS")}</span></div></div>
   <div class="toolbar">
-    <div class="field"><label for="f-q">Поиск по коду или названию</label><input type="search" id="f-q" value="${esc(S.f.q)}" placeholder="ALT, ferritīns…"></div>
-    <label class="row" style="padding-bottom:6px"><input type="checkbox" id="f-group"${S.group ? " checked" : ""}> по секциям</label>
-    <button class="btn" data-act="colpick" aria-expanded="${S.colpick}">Колонки (${S.cols.length})</button>
-    ${check ? `<span class="chip warn">Проверка: ${esc(check.l)} <button class="btn sm" data-act="clear-check" aria-label="Убрать фильтр проверки">×</button></span>` : ""}
-    ${S.sort.k ? `<span class="chip plain">Сортировка: ${esc(colField(S.sort.k) ? colField(S.sort.k).l : S.sort.k)} ${S.sort.dir > 0 ? "↑" : "↓"} <button class="btn sm" data-act="sort-clear" aria-label="Убрать сортировку">×</button></span>` : ""}
-    ${(S.f.q || filterCount || S.f.check) ? `<button class="btn" data-act="reset-filters">Сбросить фильтры${filterCount ? ` (${filterCount})` : ""}</button>` : ""}
+    <div class="field"><label for="f-q">${tr("Поиск по коду или названию")}</label><input type="search" id="f-q" value="${esc(S.f.q)}" placeholder="ALT, ferritīns…"></div>
+    <label class="row" style="padding-bottom:6px"><input type="checkbox" id="f-group"${S.group ? " checked" : ""}> ${tr("по секциям")}</label>
+    <button class="btn" data-act="colpick" aria-expanded="${S.colpick}">${tr("Колонки (")}${S.cols.length})</button>
+    ${check ? `<span class="chip warn">${tr("Проверка:")} ${esc(tr(check.l))} <button class="btn sm" data-act="clear-check" aria-label="${tr("Убрать фильтр проверки")}">×</button></span>` : ""}
+    ${S.sort.k ? `<span class="chip plain">${tr("Сортировка:")} ${esc(colField(S.sort.k) ? colField(S.sort.k).l : S.sort.k)} ${S.sort.dir > 0 ? "↑" : "↓"} <button class="btn sm" data-act="sort-clear" aria-label="${tr("Убрать сортировку")}">×</button></span>` : ""}
+    ${(S.f.q || filterCount || S.f.check) ? `<button class="btn" data-act="reset-filters">${tr("Сбросить фильтры")}${filterCount ? ` (${filterCount})` : ""}</button>` : ""}
   </div>
   ${S.colpick ? colPicker() : ""}
   ${bulk}
   <div class="tablewrap"><table class="cat">
-    <thead><tr><th></th><th><input type="checkbox" data-act="sel-page" aria-label="Выбрать страницу"></th>${cols.map(headCell).join("")}<th>Статус</th></tr>
+    <thead><tr><th></th><th><input type="checkbox" data-act="sel-page" aria-label="${tr("Выбрать страницу")}"></th>${cols.map(headCell).join("")}<th>${tr("Статус")}</th></tr>
     <tr class="filters"><th></th><th></th>${cols.map(filterCell).join("")}<th>${statusFilter()}</th></tr></thead>
-    <tbody>${rows || `<tr><td colspan="${cols.length + 3}" class="empty">Ничего не найдено. Измените фильтры.</td></tr>`}</tbody></table></div>
-  <div class="pager"><span class="muted">${list.length ? `${S.page * PAGE + 1}–${Math.min(list.length, S.page * PAGE + PAGE)} из ${list.length}` : ""}</span>
-    <button class="btn" data-act="page" data-d="-1"${S.page ? "" : " disabled"}>← Назад</button>
-    <button class="btn" data-act="page" data-d="1"${S.page < pages - 1 ? "" : " disabled"}>Вперёд →</button>
-    ${list.length > slice.length ? `<button class="btn" data-act="sel-all" data-n="${list.length}">Выбрать все ${list.length}</button>` : ""}</div>`;
+    <tbody>${rows || `<tr><td colspan="${cols.length + 3}" class="empty">${tr("Ничего не найдено. Измените фильтры.")}</td></tr>`}</tbody></table></div>
+  <div class="pager"><span class="muted">${list.length ? `${S.page * PAGE + 1}–${Math.min(list.length, S.page * PAGE + PAGE)} ${tr("из")} ${list.length}` : ""}</span>
+    <button class="btn" data-act="page" data-d="-1"${S.page ? "" : " disabled"}>${tr("← Назад")}</button>
+    <button class="btn" data-act="page" data-d="1"${S.page < pages - 1 ? "" : " disabled"}>${tr("Вперёд →")}</button>
+    ${list.length > slice.length ? `<button class="btn" data-act="sel-all" data-n="${list.length}">${tr("Выбрать все")} ${list.length}</button>` : ""}</div>`;
 }
 const pubChip = (v) => { const n = norm(v); return n === "TRUE" ? `<span class="chip good">Jā</span>` : n === "AKC" ? `<span class="chip info">AKC</span>` : n === "FALSE" ? `<span class="chip plain">Nē</span>` : `<span class="chip warn">?</span>`; };
-const boolChip = (v) => { const n = norm(v); return n === "TRUE" ? `<span class="chip good">Jā</span>` : n === "FALSE" ? `<span class="chip plain">Nē</span>` : `<span class="chip bad">пусто</span>`; };
+const boolChip = (v) => { const n = norm(v); return n === "TRUE" ? `<span class="chip good">Jā</span>` : n === "FALSE" ? `<span class="chip plain">Nē</span>` : `<span class="chip bad">${tr("пусто")}</span>`; };
 
 function inputFor(f, value, id, extra) {
   const cls = extra || "";
   if (f.t === "bool") return `<select id="${id}" data-edit="${f.k}" class="${cls}"><option value=""${isEmpty(value) ? " selected" : ""}>—</option><option value="TRUE"${norm(value) === "TRUE" ? " selected" : ""}>Jā</option><option value="FALSE"${norm(value) === "FALSE" ? " selected" : ""}>Nē</option></select>`;
-  if (f.t === "publish") return `<select id="${id}" data-edit="${f.k}" class="${cls}"><option value=""${isEmpty(value) ? " selected" : ""}>Не решено</option><option value="TRUE"${norm(value) === "TRUE" ? " selected" : ""}>Jā — общий каталог</option><option value="AKC"${norm(value) === "AKC" ? " selected" : ""}>AKC — акция</option><option value="FALSE"${norm(value) === "FALSE" ? " selected" : ""}>Nē</option></select>`;
+  if (f.t === "publish") return `<select id="${id}" data-edit="${f.k}" class="${cls}"><option value=""${isEmpty(value) ? " selected" : ""}>${tr("Не решено")}</option><option value="TRUE"${norm(value) === "TRUE" ? " selected" : ""}>${tr("Jā — общий каталог")}</option><option value="AKC"${norm(value) === "AKC" ? " selected" : ""}>${tr("AKC — акция")}</option><option value="FALSE"${norm(value) === "FALSE" ? " selected" : ""}>Nē</option></select>`;
   if (f.t === "dict") {
     const opts = (S.dicts[f.k] || []).slice().sort((a, b) => String(a[1]).localeCompare(String(b[1]), "lv"));
     return `<select id="${id}" data-edit="${f.k}" class="${cls}"><option value="">—</option>${opts.map(([v, n]) => `<option value="${esc(norm(v))}"${norm(v) === norm(value) ? " selected" : ""}>${esc(n)} (${esc(v)})</option>`).join("")}</select>`;
@@ -674,11 +680,11 @@ function renderDrawer() {
     const lvl = editLevel(f);
     const slDiff = isSl(f) && hasOwn(t.val, f.k) && !same(t.val[f.k], t.sl[f.k]) && !conf[f.k];
     const mono = ["labcode", "govcode", "loinccode", "template"].includes(f.k) ? " mono" : "";
-    const tag = isSl(f) && lvl !== "none" ? ` <span class="chip plain" title="Правка уходит в SmartLIS">↔ SmartLIS${lvl === "admin" ? " · админ" : ""}</span>` : "";
+    const tag = isSl(f) && lvl !== "none" ? ` <span class="chip plain" title="${tr("Правка уходит в SmartLIS")}">↔ SmartLIS${lvl === "admin" ? tr(" · админ") : ""}</span>` : "";
     return `<div class="field ${f.t === "long" ? "wide" : ""}"><label for="e-${f.k}">${esc(f.l)}${tag}</label>
       ${can ? inputFor(f, v, "e-" + f.k, cls) : `<div class="v${mono}">${esc(disp(f.k, v))}</div>`}
-      ${slDiff ? `<span class="hint">В SmartLIS сейчас: ${esc(disp(f.k, t.sl[f.k]))}. Уйдёт при следующей отправке.</span>` : ""}
-      ${missWeb.includes(f.k) ? `<span class="hint">Нужно для публикации на сайте</span>` : ""}</div>`;
+      ${slDiff ? `<span class="hint">${tr("В SmartLIS сейчас:")} ${esc(disp(f.k, t.sl[f.k]))}${tr(". Уйдёт при следующей отправке.")}</span>` : ""}
+      ${missWeb.includes(f.k) ? `<span class="hint">${tr("Нужно для публикации на сайте")}</span>` : ""}</div>`;
   };
   const slFields = F().filter(f => isSl(f) && f.g === "smartlis" && !["template_code", "template_name", "template", "launch"].includes(f.k));
   const prices = F().filter(f => f.price);
@@ -688,7 +694,7 @@ function renderDrawer() {
   const missTr = missingTranslations({ val: { ...t.val, ...ed } }, F());
   const langCard = ([g, L]) => { const fs = F().filter(f => f.g === g); if (!fs.length) return "";
     const filled = fs.filter(f => !isEmpty(cur(f.k))).length; const miss = fs.filter(f => missTr.includes(f.k)).length;
-    return `<details class="card lang" data-lang="${g}"${S.openLang === g ? " open" : ""}><summary><h3>Сайт · ${L}</h3><span class="muted">заполнено ${filled} из ${fs.length}</span>${miss ? ` <span class="chip warn">нет перевода: ${miss}</span>` : ""}</summary>
+    return `<details class="card lang" data-lang="${g}"${S.openLang === g ? " open" : ""}><summary><h3>${tr("Сайт ·")} ${L}</h3><span class="muted">${tr("заполнено")} ${filled} ${tr("из")} ${fs.length}</span>${miss ? ` <span class="chip warn">${tr("нет перевода:")} ${miss}</span>` : ""}</summary>
       <div class="form">${fs.map(formField).join("")}</div></details>`; };
   const mediaLinks = editMedia.map(f => cur(f.k)).filter(v => !isEmpty(v) && /^https:\/\//i.test(String(v)));
   const tc = String(t.sl.template_code || "").split("|").filter(Boolean);
@@ -697,33 +703,33 @@ function renderDrawer() {
   const hist = (S.hist[t.code] || []).slice().reverse();
   resolveNames(hist.map(h => h.u));
   const nDirty = Object.keys(ed).length;
-  const kindL = { edit: "правка", import: "из SmartLIS", export: "отправлено", bulk: "массовая правка", resolve: "конфликт решён" };
+  const kindL = { edit: tr("правка"), import: tr("из SmartLIS"), export: tr("отправлено"), bulk: tr("массовая правка"), resolve: tr("конфликт решён") };
   $("#drawer").innerHTML = `<div class="drawer-back" data-act="close"></div>
-  <aside class="drawer" role="dialog" aria-label="Карточка теста ${esc(t.code)}">
+  <aside class="drawer" role="dialog" aria-label="${tr("Карточка теста")} ${esc(t.code)}">
     <header><div style="display:grid;gap:4px"><span class="mono" style="font-size:15px;font-weight:600">${esc(t.code)}</span><h3>${esc(cur("name") || "")}</h3>
       <div class="row">${statusOf(t).map(([c, l]) => `<span class="chip ${c}">${esc(l)}</span>`).join("")}${pubChip(cur("publish"))}</div></div>
-      <button class="btn" data-act="close" aria-label="Закрыть">✕</button></header>
+      <button class="btn" data-act="close" aria-label="${tr("Закрыть")}">✕</button></header>
     <div class="body">
-      ${Object.keys(conf).map(k => `<div class="conflict"><b>Конфликт: ${esc(fm[k] ? fm[k].l : k)}</b>
-        <span>В каталоге: <b>${esc(disp(k, t.val[k]))}</b> · в SmartLIS: <b>${esc(disp(k, conf[k].theirs))}</b> · было при последней синхронизации: ${esc(disp(k, t.base[k]))}</span>
-        <div class="row"><button class="btn" data-act="resolve" data-k="${k}" data-how="ours"${ro || !canEditField(FM()[k]) ? " disabled" : ""}>Оставить значение каталога (уйдёт в SmartLIS)</button>
-        <button class="btn" data-act="resolve" data-k="${k}" data-how="theirs"${ro || !canEditField(FM()[k]) ? " disabled" : ""}>Принять значение SmartLIS</button></div></div>`).join("")}
-      <div class="card"><h3>Каталог</h3><div class="form">${editMain.map(formField).join("")}</div></div>
-      <div class="card"><h3>Сайт · LV${published ? "" : ' <span class="chip plain">тест не публикуется</span>'}</h3><div class="form">${editWeb.map(formField).join("")}</div></div>
+      ${Object.keys(conf).map(k => `<div class="conflict"><b>${tr("Конфликт:")} ${esc(fm[k] ? fm[k].l : k)}</b>
+        <span>${tr("В каталоге:")} <b>${esc(disp(k, t.val[k]))}</b> ${tr("· в SmartLIS:")} <b>${esc(disp(k, conf[k].theirs))}</b> ${tr("· было при последней синхронизации:")} ${esc(disp(k, t.base[k]))}</span>
+        <div class="row"><button class="btn" data-act="resolve" data-k="${k}" data-how="ours"${ro || !canEditField(FM()[k]) ? " disabled" : ""}>${tr("Оставить значение каталога (уйдёт в SmartLIS)")}</button>
+        <button class="btn" data-act="resolve" data-k="${k}" data-how="theirs"${ro || !canEditField(FM()[k]) ? " disabled" : ""}>${tr("Принять значение SmartLIS")}</button></div></div>`).join("")}
+      <div class="card"><h3>${tr("Каталог")}</h3><div class="form">${editMain.map(formField).join("")}</div></div>
+      <div class="card"><h3>${tr("Сайт · LV")}${published ? "" : tr(' <span class="chip plain">тест не публикуется</span>')}</h3><div class="form">${editWeb.map(formField).join("")}</div></div>
       ${LANGS.map(langCard).join("")}
-      ${editMedia.length ? `<div class="card"><h3>Изображения для сайта</h3><div class="form">${editMedia.map(formField).join("")}</div>
-        ${mediaLinks.length ? `<div class="row">${mediaLinks.map((u, i) => `<a href="${esc(u)}" target="_blank" rel="noopener noreferrer">Открыть изображение ${i + 1}</a>`).join("")}</div>` : `<span class="lbl">Ссылки на изображения (https). Уходят на сайт как media1–media3.</span>`}</div>` : ""}
-      <div class="card"><h3>Данные SmartLIS</h3><div class="form">${slFields.map(formField).join("")}</div>
-        <span class="lbl">Поля с пометкой ↔ SmartLIS можно править: изменение уйдёт в SmartLIS при отправке. Остальные меняются только в SmartLIS.</span></div>
-      <div class="card"><h3>Цены, EUR</h3><div class="form">${prices.map(formField).join("")}</div>
-        <span class="lbl">На сайт уходит ${norm(cur("publish")) === "AKC" ? "Pašreizējā cena и Cena ar atlaidi (акция)" : "только Pašreizējā cena"}.</span></div>
-      ${tc.length || launch.length ? `<div class="card"><h3>Состав</h3>
+      ${editMedia.length ? `<div class="card"><h3>${tr("Изображения для сайта")}</h3><div class="form">${editMedia.map(formField).join("")}</div>
+        ${mediaLinks.length ? `<div class="row">${mediaLinks.map((u, i) => `<a href="${esc(u)}" target="_blank" rel="noopener noreferrer">${tr("Открыть изображение")} ${i + 1}</a>`).join("")}</div>` : `<span class="lbl">${tr("Ссылки на изображения (https). Уходят на сайт как media1–media3.")}</span>`}</div>` : ""}
+      <div class="card"><h3>${tr("Данные SmartLIS")}</h3><div class="form">${slFields.map(formField).join("")}</div>
+        <span class="lbl">${tr("Поля с пометкой ↔ SmartLIS можно править: изменение уйдёт в SmartLIS при отправке. Остальные меняются только в SmartLIS.")}</span></div>
+      <div class="card"><h3>${tr("Цены, EUR")}</h3><div class="form">${prices.map(formField).join("")}</div>
+        <span class="lbl">${tr("На сайт уходит")} ${norm(cur("publish")) === "AKC" ? tr("Pašreizējā cena и Cena ar atlaidi (акция)") : tr("только Pašreizējā cena")}.</span></div>
+      ${tc.length || launch.length ? `<div class="card"><h3>${tr("Состав")}</h3>
         ${tc.length ? `<table><thead><tr><th>Kods</th><th>Nosaukums</th></tr></thead><tbody>${tc.map((c, i) => `<tr><td class="mono">${esc(c)}</td><td>${esc(tn[i] || "")}</td></tr>`).join("")}</tbody></table>` : ""}
         ${launch.length ? `<div><span class="lbl">Launch</span><div class="mono">${esc(launch.join(", "))}</div></div>` : ""}</div>` : ""}
-      <div class="card"><h3>История</h3>${hist.length ? `<div class="hist">${hist.map(h => `<div><span class="muted">${esc(fmtTime(h.t))}</span><span>${h.f ? `<b>${esc(fm[h.f] ? fm[h.f].l : h.f)}</b>: ${esc(disp(h.f, h.o))} → ${esc(disp(h.f, h.n))}` : esc(h.note || "")} <span class="chip plain">${esc(kindL[h.k] || h.k)}</span> <span class="muted">${esc(h.u ? nameOf(h.u) + (h.r && ROLES[h.r] ? " · " + ROLES[h.r].l : "") : "SmartLIS")}</span></span></div>`).join("")}</div>` : `<span class="muted">Изменений в прототипе пока не было.</span>`}</div>
+      <div class="card"><h3>${tr("История")}</h3>${hist.length ? `<div class="hist">${hist.map(h => `<div><span class="muted">${esc(fmtTime(h.t))}</span><span>${h.f ? `<b>${esc(fm[h.f] ? fm[h.f].l : h.f)}</b>: ${esc(disp(h.f, h.o))} → ${esc(disp(h.f, h.n))}` : esc(h.note || "")} <span class="chip plain">${esc(kindL[h.k] || h.k)}</span> <span class="muted">${esc(h.u ? nameOf(h.u) + (h.r && ROLES[h.r] ? " · " + tr(ROLES[h.r].l) : "") : "SmartLIS")}</span></span></div>`).join("")}</div>` : `<span class="muted">${tr("Изменений в прототипе пока не было.")}</span>`}</div>
     </div>
-    <footer><span class="muted">${ro ? (S.mode === "snapshot" ? "Снимок: редактирование после начала работы с данными" : "Только просмотр") : nDirty ? `Изменено полей: ${nDirty}` : "Нет несохранённых изменений"}</span>
-      <div class="row"><button class="btn" data-act="discard"${nDirty ? "" : " disabled"}>Отменить</button><button class="btn primary" data-act="save"${nDirty && !ro ? "" : " disabled"}>Сохранить</button></div></footer>
+    <footer><span class="muted">${ro ? (S.mode === "snapshot" ? tr("Снимок: редактирование после начала работы с данными") : tr("Только просмотр")) : nDirty ? `${tr("Изменено полей:")} ${nDirty}` : tr("Нет несохранённых изменений")}</span>
+      <div class="row"><button class="btn" data-act="discard"${nDirty ? "" : " disabled"}>${tr("Отменить")}</button><button class="btn primary" data-act="save"${nDirty && !ro ? "" : " disabled"}>${tr("Сохранить")}</button></div></footer>
   </aside>`;
 }
 
@@ -733,10 +739,10 @@ async function saveCard() {
   const patch = { val: {} }; const hist = [];
   for (const k of Object.keys(S.edits)) {
     const v = S.edits[k];
-    if (fm[k] && fm[k].req && v === null) { toast(`Поле «${fm[k].l}» нельзя оставить пустым.`, true); return; }
+    if (fm[k] && fm[k].req && v === null) { toast(`${tr("Поле «")}${fm[k].l}${tr("» нельзя оставить пустым.")}`, true); return; }
     const before = cv(t, k);
     if (same(v, before) && typeof v === typeof before) continue;
-    if (!canEditField(fm[k])) { toast(`Нет прав менять «${fm[k].l}».`, true); return; }
+    if (!canEditField(fm[k])) { toast(`${tr("Нет прав менять «")}${fm[k].l}».`, true); return; }
     patch.val[k] = v;
     if (isSl(fm[k]) && !hasOwn(t.base, k)) { patch.base = patch.base || {}; patch.base[k] = t.sl[k] ?? null; }
     hist.push({ t: now, u: S.me, r: S.role, k: "edit", f: k, o: before ?? null, n: v });
@@ -746,9 +752,9 @@ async function saveCard() {
   let event;
   if (pc.length) {
     if (!(await confirmPrices(pc, 1))) return;
-    event = { t: now, u: S.me, r: S.role, kind: "price", title: `Цена: ${t.code}`, summary: { tests: 1, changes: pc.map(r => ({ f: r.f, o: r.o, n: r.n })) }, codes: [t.code] };
+    event = { t: now, u: S.me, r: S.role, kind: "price", title: `${tr("Цена:")} ${t.code}`, summary: { tests: 1, changes: pc.map(r => ({ f: r.f, o: r.o, n: r.n })) }, codes: [t.code] };
   }
-  if (await commit({ [t.code]: patch }, { [t.code]: hist }, event)) { S.edits = {}; toast("Сохранено."); renderDrawer(); }
+  if (await commit({ [t.code]: patch }, { [t.code]: hist }, event)) { S.edits = {}; toast(tr("Сохранено.")); renderDrawer(); }
 }
 
 async function resolveConflict(k, how) {
@@ -758,24 +764,24 @@ async function resolveConflict(k, how) {
   const patch = { base: { [k]: c.theirs }, meta: { conflicts: { [k]: null } } };
   if (how === "theirs") patch.val = { [k]: c.theirs };
   const h = { t: now, u: S.me, r: S.role, k: "resolve", f: k, o: t.val[k] ?? null, n: how === "theirs" ? c.theirs : t.val[k] };
-  if (await commit({ [t.code]: patch }, { [t.code]: [h] })) toast(how === "theirs" ? "Принято значение SmartLIS." : "Оставлено значение каталога; оно в очереди на отправку.");
+  if (await commit({ [t.code]: patch }, { [t.code]: [h] })) toast(how === "theirs" ? tr("Принято значение SmartLIS.") : tr("Оставлено значение каталога; оно в очереди на отправку."));
 }
 
 async function bulkApply() {
   const k = $("#bulk-field").value; const f = FM()[k];
   const raw = $("#bulk-value").value; const v = readInput(f, raw);
-  if (f.req && v === null) { toast(`«${f.l}» нельзя сделать пустым.`, true); return; }
+  if (f.req && v === null) { toast(`«${f.l}${tr("» нельзя сделать пустым.")}`, true); return; }
   const codes = [...S.selected].filter(c => S.tests.has(c));
   const changed = codes.filter(c => !(same(cv(S.tests.get(c), k), v)));
-  if (!canEditField(f)) { toast(`Нет прав менять «${f.l}».`, true); return; }
+  if (!canEditField(f)) { toast(`${tr("Нет прав менять «")}${f.l}».`, true); return; }
   if (f.price) {
     const max = S.settings.priceBulkMax ?? DEFAULT_SETTINGS.priceBulkMax;
-    if (changed.length > max) { toast(`За одну операцию можно изменить цену не более чем у ${max} тестов, а сейчас ${changed.length}. Разбейте правку на части (фильтр по секции) — так массовое изменение цен не пройдёт случайно.`, true); return; }
-    if (!changed.length) { toast("У всех выбранных тестов уже эта цена."); return; }
+    if (changed.length > max) { toast(`${tr("За одну операцию можно изменить цену не более чем у")} ${max} ${tr("тестов, а сейчас")} ${changed.length}${tr(". Разбейте правку на части (фильтр по секции) — так массовое изменение цен не пройдёт случайно.")}`, true); return; }
+    if (!changed.length) { toast(tr("У всех выбранных тестов уже эта цена.")); return; }
     const rows = changed.map(c => { const r = priceChanges(S.tests.get(c), { [k]: v }, F(), S.settings)[0]; return { ...r, code: c }; });
     if (!(await confirmPrices(rows, changed.length))) return;
   }
-  const ok = f.price ? true : await ask(`Изменить «${f.l}» на «${disp(k, v)}» у ${changed.length} тестов?`, changed.length ? `${codes.length - changed.length} из выбранных уже имеют это значение.` : "У всех выбранных тестов уже это значение.", "Изменить");
+  const ok = f.price ? true : await ask(`${tr("Изменить «")}${f.l}${tr("» на «")}${disp(k, v)}${tr("» у")} ${changed.length} ${tr("тестов?")}`, changed.length ? `${codes.length - changed.length} ${tr("из выбранных уже имеют это значение.")}` : tr("У всех выбранных тестов уже это значение."), tr("Изменить"));
   if (!ok || !changed.length) return;
   const now = new Date().toISOString(); const patches = {}, hist = {};
   for (const c of changed) {
@@ -784,8 +790,8 @@ async function bulkApply() {
     if (isSl(f) && !hasOwn(t.base, k)) patches[c].base = { [k]: t.sl[k] ?? null };
     hist[c] = [{ t: now, u: S.me, r: S.role, k: "bulk", f: k, o: cv(t, k) ?? null, n: v }];
   }
-  if (await commit(patches, hist, { t: now, u: S.me, r: S.role, kind: f.price ? "price" : "bulk", title: `Массовая правка: ${f.l} → ${disp(k, v)}`, summary: { field: k, value: v, tests: changed.length }, codes: changed.slice(0, 1000) })) {
-    S.selected.clear(); toast(`Изменено тестов: ${changed.length}.`); renderAll();
+  if (await commit(patches, hist, { t: now, u: S.me, r: S.role, kind: f.price ? "price" : "bulk", title: `${tr("Массовая правка:")} ${f.l} → ${disp(k, v)}`, summary: { field: k, value: v, tests: changed.length }, codes: changed.slice(0, 1000) })) {
+    S.selected.clear(); toast(`${tr("Изменено тестов:")} ${changed.length}.`); renderAll();
   }
 }
 
@@ -797,27 +803,27 @@ function viewExport() {
   const json = JSON.stringify({ tests: p.tests }, null, 2);
   const blocked = p.nullRequired.length > 0 || (p.mass.length > 0 && !S.exportOverride);
   const fm = FM();
-  return `<div class="view-head"><div><h2>Отправка в SmartLIS</h2><p>Здесь собраны правки каталога, которых ещё нет в SmartLIS: поля, которые ведутся с обеих сторон. Правка уходит из списка, когда очередной импорт из SmartLIS покажет то же значение.</p></div></div>
+  return `<div class="view-head"><div><h2>${tr("Отправка в SmartLIS")}</h2><p>${tr("Здесь собраны правки каталога, которых ещё нет в SmartLIS: поля, которые ведутся с обеих сторон. Правка уходит из списка, когда очередной импорт из SmartLIS покажет то же значение.")}</p></div></div>
   <div class="tiles">
-    <div class="tile acc"><b>${p.tests.length}</b><span>тестов к отправке</span></div>
+    <div class="tile acc"><b>${p.tests.length}</b><span>${tr("тестов к отправке")}</span></div>
     ${Object.keys(p.byField).map(k => `<div class="tile"><b>${p.byField[k]}</b><span>${esc(fm[k] ? fm[k].l : k)}</span></div>`).join("")}
-    <div class="tile ${conflicts ? "bad" : ""}"><b>${conflicts}</b><span>с конфликтом (не отправляются)</span></div>
-    <div class="tile info"><b>${p.items.filter(i => i.sentBefore).length}</b><span>полей уже отправлялись, ждут подтверждения</span></div>
+    <div class="tile ${conflicts ? "bad" : ""}"><b>${conflicts}</b><span>${tr("с конфликтом (не отправляются)")}</span></div>
+    <div class="tile info"><b>${p.items.filter(i => i.sentBefore).length}</b><span>${tr("полей уже отправлялись, ждут подтверждения")}</span></div>
   </div>
-  ${p.nullRequired.length ? `<div class="alert bad"><b>Отправка заблокирована: пустое значение в обязательном поле</b><span>${p.nullRequired.length} шт.: ${esc(p.nullRequired.slice(0, 15).join(", "))}${p.nullRequired.length > 15 ? "…" : ""}. Заполните их в карточках тестов.</span></div>` : ""}
-  ${p.mass.length ? `<div class="alert warn"><b>Массовое изменение</b><span>${p.mass.map(m => `${esc(fm[m.f] ? fm[m.f].l : m.f)}: ${m.n} тестов`).join("; ")} — больше порога ${S.settings.massLimit}. Обычно это значит, что импорт был неполным. Если изменение осознанное, подтвердите.</span>
-    <label class="row"><input type="checkbox" id="export-override"${S.exportOverride ? " checked" : ""}> Я проверил(а), это осознанное массовое изменение</label></div>` : ""}
+  ${p.nullRequired.length ? `<div class="alert bad"><b>${tr("Отправка заблокирована: пустое значение в обязательном поле")}</b><span>${p.nullRequired.length} ${tr("шт.:")} ${esc(p.nullRequired.slice(0, 15).join(", "))}${p.nullRequired.length > 15 ? "…" : ""}${tr(". Заполните их в карточках тестов.")}</span></div>` : ""}
+  ${p.mass.length ? `<div class="alert warn"><b>${tr("Массовое изменение")}</b><span>${p.mass.map(m => `${esc(fm[m.f] ? fm[m.f].l : m.f)}: ${m.n} ${tr("тестов")}`).join("; ")} ${tr("— больше порога")} ${S.settings.massLimit}${tr(". Обычно это значит, что импорт был неполным. Если изменение осознанное, подтвердите.")}</span>
+    <label class="row"><input type="checkbox" id="export-override"${S.exportOverride ? " checked" : ""}> ${tr("Я проверил(а), это осознанное массовое изменение")}</label></div>` : ""}
   <div class="row">
-    <button class="btn" data-act="copy-json" data-what="export"${p.tests.length && !blocked ? "" : " disabled"}>Скопировать JSON</button>
-    ${downloads ? `<button class="btn" data-act="dl-json" data-what="export"${p.tests.length && !blocked ? "" : " disabled"}>Скачать JSON</button>` : ""}
-    <button class="btn primary" data-act="mark-sent"${p.tests.length && !blocked && canDo("export") ? "" : " disabled"}>Отметить как отправленное</button>
+    <button class="btn" data-act="copy-json" data-what="export"${p.tests.length && !blocked ? "" : " disabled"}>${tr("Скопировать JSON")}</button>
+    ${downloads ? `<button class="btn" data-act="dl-json" data-what="export"${p.tests.length && !blocked ? "" : " disabled"}>${tr("Скачать JSON")}</button>` : ""}
+    <button class="btn primary" data-act="mark-sent"${p.tests.length && !blocked && canDo("export") ? "" : " disabled"}>${tr("Отметить как отправленное")}</button>
     ${canDo("export") ? "" : `<span class="muted">${roleHint("export")}</span>`}
-    <span class="muted">Формат совпадает с телом запроса bulk_update. Справочные поля пока идут как ID SmartLIS (как в File processor); для SmartComm API понадобятся коды.</span>
+    <span class="muted">${tr("Формат совпадает с телом запроса bulk_update. Справочные поля пока идут как ID SmartLIS (как в File processor); для SmartComm API понадобятся коды.")}</span>
   </div>
   <div class="split">
-    <div class="tablewrap" style="max-height:480px;overflow:auto"><table><thead><tr><th>Kods</th><th>Поле</th><th>В SmartLIS</th><th>В каталоге (уйдёт)</th><th></th></tr></thead>
-      <tbody>${p.items.slice(0, 500).map(i => `<tr class="click" data-open="${esc(i.code)}"><td class="mono">${esc(i.code)}</td><td>${esc(fm[i.f] ? fm[i.f].l : i.f)}</td><td>${esc(disp(i.f, i.smartlis))}</td><td><b>${esc(disp(i.f, i.catalog))}</b></td><td>${i.sentBefore ? '<span class="chip info">отправлялось</span>' : ""}</td></tr>`).join("") || `<tr><td colspan="5" class="empty">Отправлять нечего: каталог совпадает со SmartLIS.</td></tr>`}</tbody></table></div>
-    <div class="field"><span class="lbl">JSON для SmartLIS</span><pre class="json">${esc(json.length > 20000 ? json.slice(0, 20000) + "\n…" : json)}</pre></div>
+    <div class="tablewrap" style="max-height:480px;overflow:auto"><table><thead><tr><th>Kods</th><th>${tr("Поле")}</th><th>${tr("В SmartLIS")}</th><th>${tr("В каталоге (уйдёт)")}</th><th></th></tr></thead>
+      <tbody>${p.items.slice(0, 500).map(i => `<tr class="click" data-open="${esc(i.code)}"><td class="mono">${esc(i.code)}</td><td>${esc(fm[i.f] ? fm[i.f].l : i.f)}</td><td>${esc(disp(i.f, i.smartlis))}</td><td><b>${esc(disp(i.f, i.catalog))}</b></td><td>${i.sentBefore ? tr('<span class="chip info">отправлялось</span>') : ""}</td></tr>`).join("") || `<tr><td colspan="5" class="empty">${tr("Отправлять нечего: каталог совпадает со SmartLIS.")}</td></tr>`}</tbody></table></div>
+    <div class="field"><span class="lbl">${tr("JSON для SmartLIS")}</span><pre class="json">${esc(json.length > 20000 ? json.slice(0, 20000) + "\n…" : json)}</pre></div>
   </div>`;
 }
 
@@ -830,7 +836,7 @@ async function markSent() {
     const nT = new Set(priceItems.map(i => i.code)).size;
     if (!(await confirmPrices(rows, nT))) return;
   }
-  const ok = await ask(`Отметить ${p.tests.length} тестов как отправленные?`, "Нажимайте после того, как JSON загружен в SmartLIS. Тесты останутся в списке со статусом «ждёт подтверждения», пока импорт из SmartLIS не покажет те же значения.", "Отметить");
+  const ok = await ask(`${tr("Отметить")} ${p.tests.length} ${tr("тестов как отправленные?")}`, tr("Нажимайте после того, как JSON загружен в SmartLIS. Тесты останутся в списке со статусом «ждёт подтверждения», пока импорт из SmartLIS не покажет те же значения."), tr("Отметить"));
   if (!ok) return;
   const now = new Date().toISOString(); const id = now.replace(/[-:TZ.]/g, "").slice(0, 14);
   const patches = {}, hist = {};
@@ -838,53 +844,53 @@ async function markSent() {
     patches[r.code] = { meta: { lastExport: { id, t: now } } };
     hist[r.code] = Object.keys(r).filter(k => k !== "code").map(k => ({ t: now, u: S.me, r: S.role, k: "export", f: k, o: S.tests.get(r.code).sl[k] ?? null, n: S.tests.get(r.code).val[k] ?? null }));
   }
-  if (await commit(patches, hist, { t: now, u: S.me, r: S.role, kind: "export", title: `Отправка в SmartLIS, пакет ${id}`, summary: { tests: p.tests.length, fields: p.byField }, codes: p.tests.map(r => r.code).slice(0, 1000) })) toast(`Пакет ${id} отмечен как отправленный.`);
+  if (await commit(patches, hist, { t: now, u: S.me, r: S.role, kind: "export", title: `${tr("Отправка в SmartLIS, пакет")} ${id}`, summary: { tests: p.tests.length, fields: p.byField }, codes: p.tests.map(r => r.code).slice(0, 1000) })) toast(`${tr("Пакет")} ${id} ${tr("отмечен как отправленный.")}`);
 }
 
 /* ================= view: import ================= */
 function viewImport() {
   const p = S.importPlan; const fm = FM();
-  const kindL = { smartlis: "обновлено из SmartLIS", take: "принято из SmartLIS" };
+  const kindL = { smartlis: tr("обновлено из SmartLIS"), take: tr("принято из SmartLIS") };
   let planHtml = "";
   if (p) {
     const blocked = p.errors.length > 0 || (p.massCleared.length > 0 && !S.importOverride);
-    planHtml = `<div class="card"><div class="row" style="justify-content:space-between"><h3>Что изменится: ${esc(S.importFile)}</h3><button class="btn" data-act="import-cancel">Отменить</button></div>
-      ${p.errors.length ? `<div class="alert bad"><b>Импорт невозможен</b><ul>${p.errors.slice(0, 12).map(e => `<li>${esc(e)}</li>`).join("")}</ul></div>` : ""}
-      ${p.massCleared.length ? `<div class="alert bad"><b>Поля очистятся у слишком многих тестов</b><span>${p.massCleared.map(m => `${esc(fm[m.f] ? fm[m.f].l : m.f)}: ${m.n} (порог ${m.limit})`).join("; ")}. Так бывает, когда колонки в файле съехали или заголовки старые.</span>
-        <label class="row"><input type="checkbox" id="import-override"${S.importOverride ? " checked" : ""}> Я проверил(а) файл, очистка ожидаемая</label></div>` : ""}
+    planHtml = `<div class="card"><div class="row" style="justify-content:space-between"><h3>${tr("Что изменится:")} ${esc(S.importFile)}</h3><button class="btn" data-act="import-cancel">${tr("Отменить")}</button></div>
+      ${p.errors.length ? `<div class="alert bad"><b>${tr("Импорт невозможен")}</b><ul>${p.errors.slice(0, 12).map(e => `<li>${esc(tr(e))}</li>`).join("")}</ul></div>` : ""}
+      ${p.massCleared.length ? `<div class="alert bad"><b>${tr("Поля очистятся у слишком многих тестов")}</b><span>${p.massCleared.map(m => `${esc(fm[m.f] ? fm[m.f].l : m.f)}: ${m.n} ${tr("(порог")} ${m.limit})`).join("; ")}${tr(". Так бывает, когда колонки в файле съехали или заголовки старые.")}</span>
+        <label class="row"><input type="checkbox" id="import-override"${S.importOverride ? " checked" : ""}> ${tr("Я проверил(а) файл, очистка ожидаемая")}</label></div>` : ""}
       <div class="tiles">
-        <div class="tile"><b>${p.rowsCount}</b><span>тестов в файле</span></div>
-        <div class="tile good"><b>${p.newTests.length}</b><span>новых тестов</span></div>
-        <div class="tile acc"><b>${p.changes.length}</b><span>изменённых значений</span></div>
-        <div class="tile ${p.conflicts.length ? "bad" : ""}"><b>${p.conflicts.length}</b><span>конфликтов</span></div>
-        <div class="tile info"><b>${p.converged.length}</b><span>отправленных правок подтверждено</span></div>
-        <div class="tile ${p.missing.length ? "warn" : ""}"><b>${p.missing.length}</b><span>пропали из SmartLIS</span></div>
+        <div class="tile"><b>${p.rowsCount}</b><span>${tr("тестов в файле")}</span></div>
+        <div class="tile good"><b>${p.newTests.length}</b><span>${tr("новых тестов")}</span></div>
+        <div class="tile acc"><b>${p.changes.length}</b><span>${tr("изменённых значений")}</span></div>
+        <div class="tile ${p.conflicts.length ? "bad" : ""}"><b>${p.conflicts.length}</b><span>${tr("конфликтов")}</span></div>
+        <div class="tile info"><b>${p.converged.length}</b><span>${tr("отправленных правок подтверждено")}</span></div>
+        <div class="tile ${p.missing.length ? "warn" : ""}"><b>${p.missing.length}</b><span>${tr("пропали из SmartLIS")}</span></div>
       </div>
       ${Object.keys(p.byField).length ? `<div class="row">${Object.keys(p.byField).map(k => `<span class="chip plain">${esc(fm[k] ? fm[k].l : k)}: ${p.byField[k]}</span>`).join("")}</div>` : ""}
       ${(p.skippedInactive || p.absentFields.length || p.unknownHeaders.length || p.unknownIds.length) ? `<div class="alert info">
-        ${p.skippedInactive ? `<span>Пропущено неактивных тестов (active = FALSE): ${p.skippedInactive}. В каталог попадают только активные.</span>` : ""}
-        ${p.absentFields.length ? `<span>Нет в файле, не обновляются: ${esc(p.absentFields.join(", "))}</span>` : ""}
-        ${p.unknownHeaders.length ? `<span>Колонки не используются: ${esc(p.unknownHeaders.join(", "))}</span>` : ""}
-        ${p.unknownIds.length ? `<span>ID, которых нет в справочниках: ${esc(p.unknownIds.join("; "))}</span>` : ""}</div>` : ""}
-      ${p.conflicts.length ? `<div><span class="lbl">Конфликты: значение изменили и в каталоге, и в SmartLIS. Никто ничего не перезапишет, решите в карточке теста.</span>
-        <div class="tablewrap"><table><thead><tr><th>Kods</th><th>Поле</th><th>Каталог</th><th>SmartLIS</th></tr></thead><tbody>${p.conflicts.slice(0, 100).map(c => `<tr><td class="mono">${esc(c.code)}</td><td>${esc(fm[c.f] ? fm[c.f].l : c.f)}</td><td>${esc(disp(c.f, c.ours))}</td><td>${esc(disp(c.f, c.theirs))}</td></tr>`).join("")}</tbody></table></div></div>` : ""}
-      ${p.changes.length ? `<div class="tablewrap" style="max-height:360px;overflow:auto"><table><thead><tr><th>Kods</th><th>Поле</th><th>Было</th><th>Станет</th><th></th></tr></thead><tbody>
+        ${p.skippedInactive ? `<span>${tr("Пропущено неактивных тестов (active = FALSE):")} ${p.skippedInactive}${tr(". В каталог попадают только активные.")}</span>` : ""}
+        ${p.absentFields.length ? `<span>${tr("Нет в файле, не обновляются:")} ${esc(p.absentFields.join(", "))}</span>` : ""}
+        ${p.unknownHeaders.length ? `<span>${tr("Колонки не используются:")} ${esc(p.unknownHeaders.join(", "))}</span>` : ""}
+        ${p.unknownIds.length ? `<span>${tr("ID, которых нет в справочниках:")} ${esc(p.unknownIds.join("; "))}</span>` : ""}</div>` : ""}
+      ${p.conflicts.length ? `<div><span class="lbl">${tr("Конфликты: значение изменили и в каталоге, и в SmartLIS. Никто ничего не перезапишет, решите в карточке теста.")}</span>
+        <div class="tablewrap"><table><thead><tr><th>Kods</th><th>${tr("Поле")}</th><th>${tr("Каталог")}</th><th>SmartLIS</th></tr></thead><tbody>${p.conflicts.slice(0, 100).map(c => `<tr><td class="mono">${esc(c.code)}</td><td>${esc(fm[c.f] ? fm[c.f].l : c.f)}</td><td>${esc(disp(c.f, c.ours))}</td><td>${esc(disp(c.f, c.theirs))}</td></tr>`).join("")}</tbody></table></div></div>` : ""}
+      ${p.changes.length ? `<div class="tablewrap" style="max-height:360px;overflow:auto"><table><thead><tr><th>Kods</th><th>${tr("Поле")}</th><th>${tr("Было")}</th><th>${tr("Станет")}</th><th></th></tr></thead><tbody>
         ${p.changes.slice(0, 400).map(c => `<tr><td class="mono">${esc(c.code)}</td><td>${esc(fm[c.f] ? fm[c.f].l : c.f)}</td><td>${esc(disp(c.f, c.old))}</td><td>${esc(disp(c.f, c.new))}</td><td><span class="chip plain">${esc(kindL[c.kind])}</span></td></tr>`).join("")}</tbody></table></div>` : ""}
-      ${p.newTests.length ? `<span class="lbl">Новые: ${esc(p.newTests.slice(0, 40).join(", "))}${p.newTests.length > 40 ? "…" : ""}</span>` : ""}
-      ${p.missing.length ? `<span class="lbl">Пропали из SmartLIS (останутся в каталоге с пометкой): ${esc(p.missing.slice(0, 40).join(", "))}${p.missing.length > 40 ? "…" : ""}</span>` : ""}
-      <div class="row"><button class="btn primary" data-act="import-apply"${blocked || !canDo("import") ? " disabled" : ""}>Применить импорт</button>
-        ${!canDo("import") ? `<span class="muted">${S.mode === "snapshot" ? "Сначала начните работу с данными (баннер сверху)." : roleHint("import")}</span>` : ""}</div></div>`;
+      ${p.newTests.length ? `<span class="lbl">${tr("Новые:")} ${esc(p.newTests.slice(0, 40).join(", "))}${p.newTests.length > 40 ? "…" : ""}</span>` : ""}
+      ${p.missing.length ? `<span class="lbl">${tr("Пропали из SmartLIS (останутся в каталоге с пометкой):")} ${esc(p.missing.slice(0, 40).join(", "))}${p.missing.length > 40 ? "…" : ""}</span>` : ""}
+      <div class="row"><button class="btn primary" data-act="import-apply"${blocked || !canDo("import") ? " disabled" : ""}>${tr("Применить импорт")}</button>
+        ${!canDo("import") ? `<span class="muted">${S.mode === "snapshot" ? tr("Сначала начните работу с данными (баннер сверху).") : roleHint("import")}</span>` : ""}</div></div>`;
   }
   const ex = S.excelPlan;
-  return `<div class="view-head"><div><h2>Импорт из SmartLIS</h2><p>Загрузите выгрузку тестов из SmartLIS: CSV в UTF-8 или Excel, первая строка — заголовки (code, name, …). Сначала вы увидите, что изменится; ничего не записывается до кнопки «Применить».</p></div></div>
-  <label class="drop" id="drop-import" for="file-import"><b>Перетащите файл сюда или нажмите, чтобы выбрать</b><span class="muted">.csv (UTF-8) или .xlsx · поля SmartLIS обновятся, правки каталога сохранятся</span>
+  return `<div class="view-head"><div><h2>${tr("Импорт из SmartLIS")}</h2><p>${tr("Загрузите выгрузку тестов из SmartLIS: CSV в UTF-8 или Excel, первая строка — заголовки (code, name, …). Сначала вы увидите, что изменится; ничего не записывается до кнопки «Применить».")}</p></div></div>
+  <label class="drop" id="drop-import" for="file-import"><b>${tr("Перетащите файл сюда или нажмите, чтобы выбрать")}</b><span class="muted">${tr(".csv (UTF-8) или .xlsx · поля SmartLIS обновятся, правки каталога сохранятся")}</span>
     <input type="file" id="file-import" accept=".csv,.xlsx,.xls" hidden></label>
   ${planHtml}
-  <div class="card"><h3>Перенос из Excel (SharePoint)</h3>
-    <p class="muted" style="margin:0">Разовый перенос текущего файла Laboratorija_Pricelist_SSoT.xlsx: листы Catalog, Dictionary и DB_Import. ${S.mode === "live" ? "Заменит все данные прототипа." : "Создаст общие данные прототипа."}</p>
-    ${isAdminRole() ? `<label class="drop" for="file-excel"><b>Выбрать Excel-файл каталога</b><input type="file" id="file-excel" accept=".xlsx" hidden></label>` : `<span class="muted">Доступно администраторам (IT).</span>`}
-    ${ex ? `${ex.errors.length ? `<div class="alert bad"><ul>${ex.errors.map(e => `<li>${esc(e)}</li>`).join("")}</ul></div>` : `<div class="alert info"><b>Готово к переносу: ${ex.tests.length} тестов, справочников: ${Object.keys(ex.dicts).length}</b>${ex.warnings.length ? `<span>${esc(ex.warnings.slice(0, 8).join(" · "))}${ex.warnings.length > 8 ? ` …и ещё ${ex.warnings.length - 8}` : ""}</span>` : ""}</div>
-      <div class="row"><button class="btn primary" data-act="excel-apply">${S.mode === "live" ? "Заменить данные прототипа" : "Перенести"}</button><button class="btn" data-act="excel-cancel">Отменить</button></div>`}` : ""}
+  <div class="card"><h3>${tr("Перенос из Excel (SharePoint)")}</h3>
+    <p class="muted" style="margin:0">${tr("Разовый перенос текущего файла Laboratorija_Pricelist_SSoT.xlsx: листы Catalog, Dictionary и DB_Import.")} ${S.mode === "live" ? tr("Заменит все данные прототипа.") : tr("Создаст общие данные прототипа.")}</p>
+    ${isAdminRole() ? `<label class="drop" for="file-excel"><b>${tr("Выбрать Excel-файл каталога")}</b><input type="file" id="file-excel" accept=".xlsx" hidden></label>` : `<span class="muted">${tr("Доступно администраторам (IT).")}</span>`}
+    ${ex ? `${ex.errors.length ? `<div class="alert bad"><ul>${ex.errors.map(e => `<li>${esc(tr(e))}</li>`).join("")}</ul></div>` : `<div class="alert info"><b>${tr("Готово к переносу:")} ${ex.tests.length} ${tr("тестов, справочников:")} ${Object.keys(ex.dicts).length}</b>${ex.warnings.length ? `<span>${esc(ex.warnings.slice(0, 8).join(" · "))}${ex.warnings.length > 8 ? ` ${tr("…и ещё")} ${ex.warnings.length - 8}` : ""}</span>` : ""}</div>
+      <div class="row"><button class="btn primary" data-act="excel-apply">${S.mode === "live" ? tr("Заменить данные прототипа") : tr("Перенести")}</button><button class="btn" data-act="excel-cancel">${tr("Отменить")}</button></div>`}` : ""}
   </div>`;
 }
 
@@ -896,7 +902,7 @@ async function readImportFile(file) {
   const buf = await file.arrayBuffer();
   let rows;
   if (/\.xlsx?$/i.test(file.name)) {
-    if (typeof XLSX === "undefined") { toast("Не загрузилась библиотека для Excel. Сохраните выгрузку как CSV (UTF-8).", true); return; }
+    if (typeof XLSX === "undefined") { toast(tr("Не загрузилась библиотека для Excel. Сохраните выгрузку как CSV (UTF-8)."), true); return; }
     const wb = XLSX.read(buf, { type: "array" });
     rows = sheetRows(wb, "DB_Import") || XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, raw: true, defval: null });
   } else {
@@ -913,15 +919,15 @@ async function applyImport() {
   const now = new Date().toISOString();
   const hist = {};
   for (const c of p.changes) (hist[c.code] = hist[c.code] || []).push({ t: now, u: null, k: "import", f: c.f, o: c.old ?? null, n: c.new ?? null });
-  for (const c of p.newTests) hist[c] = [{ t: now, u: null, k: "import", note: "Тест добавлен из SmartLIS" }];
-  for (const c of p.conflicts) (hist[c.code] = hist[c.code] || []).push({ t: now, u: null, k: "import", note: `Конфликт по полю ${c.f}` });
+  for (const c of p.newTests) hist[c] = [{ t: now, u: null, k: "import", note: tr("Тест добавлен из SmartLIS") }];
+  for (const c of p.conflicts) (hist[c.code] = hist[c.code] || []).push({ t: now, u: null, k: "import", note: `${tr("Конфликт по полю")} ${c.f}` });
   const patches = {};
   for (const code of Object.keys(p.patches)) { const pt = { ...p.patches[code] }; delete pt._new; patches[code] = pt; }
-  const ok = await commit(patches, hist, { t: now, u: S.me, r: S.role, kind: "import", title: `Импорт из SmartLIS: ${S.importFile}`, summary: { rows: p.rowsCount, new: p.newTests.length, changes: p.changes.length, conflicts: p.conflicts.length, confirmed: p.converged.length, missing: p.missing.length } });
-  if (ok) { toast(`Импорт применён: новых ${p.newTests.length}, изменений ${p.changes.length}, конфликтов ${p.conflicts.length}.`); S.importPlan = null; renderAll(); }
+  const ok = await commit(patches, hist, { t: now, u: S.me, r: S.role, kind: "import", title: `${tr("Импорт из SmartLIS:")} ${S.importFile}`, summary: { rows: p.rowsCount, new: p.newTests.length, changes: p.changes.length, conflicts: p.conflicts.length, confirmed: p.converged.length, missing: p.missing.length } });
+  if (ok) { toast(`${tr("Импорт применён: новых")} ${p.newTests.length}${tr(", изменений")} ${p.changes.length}${tr(", конфликтов")} ${p.conflicts.length}.`); S.importPlan = null; renderAll(); }
 }
 async function readExcel(file) {
-  if (typeof XLSX === "undefined") { toast("Не загрузилась библиотека для Excel.", true); return; }
+  if (typeof XLSX === "undefined") { toast(tr("Не загрузилась библиотека для Excel."), true); return; }
   const wb = XLSX.read(await file.arrayBuffer(), { type: "array" });
   const sheets = { Catalog: sheetRows(wb, "Catalog"), Dictionary: sheetRows(wb, "Dictionary"), DB_Import: sheetRows(wb, "DB_Import") };
   S.excelPlan = buildFromExcel(sheets, F());
@@ -929,8 +935,8 @@ async function readExcel(file) {
 }
 async function applyExcel() {
   const ex = S.excelPlan; if (!ex || ex.errors.length) return;
-  if (S.mode === "live") { const ok = await ask("Заменить все данные прототипа?", "Каталог, история изменений тестов и справочники будут перезаписаны данными из Excel. Журнал событий сохранится.", "Заменить"); if (!ok) return; }
-  if (S.mode === "local") { S.dicts = ex.dicts; S.tests = new Map(ex.tests.map(t => [t.code, t])); S.excelPlan = null; renderAll(); toast("Перенесено (без сохранения: хранилище недоступно)."); return; }
+  if (S.mode === "live") { const ok = await ask(tr("Заменить все данные прототипа?"), tr("Каталог, история изменений тестов и справочники будут перезаписаны данными из Excel. Журнал событий сохранится."), tr("Заменить")); if (!ok) return; }
+  if (S.mode === "local") { S.dicts = ex.dicts; S.tests = new Map(ex.tests.map(t => [t.code, t])); S.excelPlan = null; renderAll(); toast(tr("Перенесено (без сохранения: хранилище недоступно).")); return; }
   await initStore(ex.tests, ex.dicts, "Excel: " + new Date().toISOString().slice(0, 10));
   S.excelPlan = null; S.mode = "live"; renderAll();
 }
@@ -946,23 +952,23 @@ function viewSite() {
   const withLv = pub.filter(t => !isEmpty(t.val.longDescription));
   const trDone = (g) => withLv.filter(t => F().filter(f => f.g === g && f.tr === "longDescription").every(f => !isEmpty(t.val[f.k]))).length;
   const text = JSON.stringify(json, null, 2);
-  return `<div class="view-head"><div><h2>Сайт (Web JSON)</h2><p>Файл для Strapi. Попадают тесты с «Mājaslapā = Jā» — тексты на LV, RU и EN (поля <code>…_ru</code>, <code>…_en</code>) и ссылки на изображения <code>media1–3</code>; акции AKC собираются в отдельный массив promotions и пока выключены.</p></div></div>
+  return `<div class="view-head"><div><h2>${tr("Сайт (Web JSON)")}</h2><p>${tr("Файл для Strapi. Попадают тесты с «Mājaslapā = Jā» — тексты на LV, RU и EN (поля")} <code>…_ru</code>, <code>…_en</code>${tr(") и ссылки на изображения")} <code>media1–3</code>${tr("; акции AKC собираются в отдельный массив promotions и пока выключены.")}</p></div></div>
   <div class="tiles">
-    <div class="tile good"><b>${pub.length}</b><span>тестов на сайте</span></div>
-    <div class="tile ${incomplete.length ? "warn" : ""}"><b>${incomplete.length}</b><span>из них без нужных текстов</span></div>
-    <div class="tile"><b>${trDone("web_ru")} / ${withLv.length}</b><span>с переводом RU (из тестов с LV-описанием)</span></div>
-    <div class="tile"><b>${trDone("web_en")} / ${withLv.length}</b><span>с переводом EN</span></div>
-    <div class="tile info"><b>${akc.length}</b><span>акций AKC ${S.settings.includeAkc ? "в выгрузке" : "(выключены)"}</span></div>
+    <div class="tile good"><b>${pub.length}</b><span>${tr("тестов на сайте")}</span></div>
+    <div class="tile ${incomplete.length ? "warn" : ""}"><b>${incomplete.length}</b><span>${tr("из них без нужных текстов")}</span></div>
+    <div class="tile"><b>${trDone("web_ru")} / ${withLv.length}</b><span>${tr("с переводом RU (из тестов с LV-описанием)")}</span></div>
+    <div class="tile"><b>${trDone("web_en")} / ${withLv.length}</b><span>${tr("с переводом EN")}</span></div>
+    <div class="tile info"><b>${akc.length}</b><span>${tr("акций AKC")} ${S.settings.includeAkc ? tr("в выгрузке") : tr("(выключены)")}</span></div>
   </div>
-  <div class="card"><h3>Какие цены уходят на сайт</h3>
-    <table><thead><tr><th>Публикация</th><th>Pašreizējā cena (fin_price2)</th><th>Cena ar atlaidi (fin_cost1)</th><th>NVD cena, Vecā cena</th></tr></thead>
-    <tbody><tr><td>Jā — общий каталог</td><td>да</td><td>—</td><td>никогда</td></tr><tr><td>AKC — акция</td><td>да</td><td>да</td><td>никогда</td></tr></tbody></table>
-    <label class="row"><input type="checkbox" id="set-akc"${S.settings.includeAkc ? " checked" : ""}${isAdminRole() && canWrite() ? "" : " disabled"}> Включать акции AKC (массив promotions)</label></div>
+  <div class="card"><h3>${tr("Какие цены уходят на сайт")}</h3>
+    <table><thead><tr><th>${tr("Публикация")}</th><th>Pašreizējā cena (fin_price2)</th><th>Cena ar atlaidi (fin_cost1)</th><th>NVD cena, Vecā cena</th></tr></thead>
+    <tbody><tr><td>${tr("Jā — общий каталог")}</td><td>${tr("да")}</td><td>—</td><td>${tr("никогда")}</td></tr><tr><td>${tr("AKC — акция")}</td><td>${tr("да")}</td><td>${tr("да")}</td><td>${tr("никогда")}</td></tr></tbody></table>
+    <label class="row"><input type="checkbox" id="set-akc"${S.settings.includeAkc ? " checked" : ""}${isAdminRole() && canWrite() ? "" : " disabled"}> ${tr("Включать акции AKC (массив promotions)")}</label></div>
   <div class="row">
-    <button class="btn" data-act="copy-json" data-what="web"${canDoWith("web", myRoles()) ? "" : " disabled"}>Скопировать JSON</button>
-    ${downloads ? `<button class="btn primary" data-act="dl-json" data-what="web"${canDoWith("web", myRoles()) ? "" : " disabled"}>Скачать JSON</button>` : ""}
+    <button class="btn" data-act="copy-json" data-what="web"${canDoWith("web", myRoles()) ? "" : " disabled"}>${tr("Скопировать JSON")}</button>
+    ${downloads ? `<button class="btn primary" data-act="dl-json" data-what="web"${canDoWith("web", myRoles()) ? "" : " disabled"}>${tr("Скачать JSON")}</button>` : ""}
     ${canDoWith("web", myRoles()) ? "" : `<span class="muted">${roleHint("web")}</span>`}
-    ${incomplete.length ? `<button class="btn" data-act="go-check" data-c="web-missing">Показать тесты без текстов</button>` : ""}
+    ${incomplete.length ? `<button class="btn" data-act="go-check" data-c="web-missing">${tr("Показать тесты без текстов")}</button>` : ""}
   </div>
   <pre class="json">${esc(text.length > 30000 ? text.slice(0, 30000) + "\n…" : text)}</pre>`;
 }
@@ -971,29 +977,29 @@ function viewSite() {
 function viewChecks() {
   const list = CHECKS.map(c => ({ ...c, n: [...S.tests.values()].filter(t => c.fn(t, F())).length }));
   const dd = dictDuplicates(S.dicts); const sd = seoDuplicates(S.tests);
-  return `<div class="view-head"><div><h2>Проверки</h2><p>Правила качества каталога. Нажмите «Показать», чтобы открыть эти тесты в каталоге и исправить.</p></div></div>
-  <div class="checklist">${list.map(c => `<div class="check"><span class="sev ${c.sev}"></span><span>${esc(c.l)}</span><b>${c.n}</b><button class="btn sm" data-act="go-check" data-c="${c.id}"${c.n ? "" : " disabled"}>Показать</button></div>`).join("")}
-    <div class="check"><span class="sev ${dd.length ? "bad" : "info"}"></span><span>Дубли в справочниках: одно название у разных ID${dd.length ? `<br><span class="muted">${dd.map(d => `${esc(d.field)}: «${esc(d.name)}» = ${d.ids.join(", ")}`).join("; ")}</span>` : ""}</span><b>${dd.length}</b><button class="btn sm" data-act="go" data-v="setup">Справочники</button></div>
-    <div class="check"><span class="sev ${sd.length ? "warn" : "info"}"></span><span>Одинаковый SEO URL у разных тестов${sd.length ? `<br><span class="muted">${sd.slice(0, 10).map(d => `${esc(d.url)}: ${esc(d.codes.join(", "))}`).join("; ")}</span>` : ""}</span><b>${sd.length}</b><span></span></div>
+  return `<div class="view-head"><div><h2>${tr("Проверки")}</h2><p>${tr("Правила качества каталога. Нажмите «Показать», чтобы открыть эти тесты в каталоге и исправить.")}</p></div></div>
+  <div class="checklist">${list.map(c => `<div class="check"><span class="sev ${c.sev}"></span><span>${esc(tr(c.l))}</span><b>${c.n}</b><button class="btn sm" data-act="go-check" data-c="${c.id}"${c.n ? "" : " disabled"}>${tr("Показать")}</button></div>`).join("")}
+    <div class="check"><span class="sev ${dd.length ? "bad" : "info"}"></span><span>${tr("Дубли в справочниках: одно название у разных ID")}${dd.length ? `<br><span class="muted">${dd.map(d => `${esc(d.field)}: «${esc(d.name)}» = ${d.ids.join(", ")}`).join("; ")}</span>` : ""}</span><b>${dd.length}</b><button class="btn sm" data-act="go" data-v="setup">${tr("Справочники")}</button></div>
+    <div class="check"><span class="sev ${sd.length ? "warn" : "info"}"></span><span>${tr("Одинаковый SEO URL у разных тестов")}${sd.length ? `<br><span class="muted">${sd.slice(0, 10).map(d => `${esc(d.url)}: ${esc(d.codes.join(", "))}`).join("; ")}</span>` : ""}</span><b>${sd.length}</b><span></span></div>
   </div>`;
 }
 
 /* ================= view: log ================= */
 function viewLog() {
   resolveNames(S.events.map(e => e.u));
-  const kindL = { init: ["acc", "загрузка"], import: ["info", "импорт"], export: ["good", "отправка"], bulk: ["warn", "массовая правка"], price: ["bad", "цены"], settings: ["plain", "настройки"] };
+  const kindL = { init: ["acc", tr("загрузка")], import: ["info", tr("импорт")], export: ["good", tr("отправка")], bulk: ["warn", tr("массовая правка")], price: ["bad", tr("цены")], settings: ["plain", tr("настройки")] };
   const sum = (e) => {
     const s = e.summary || {};
-    if (e.kind === "import") return `в файле ${s.rows}, новых ${s.new}, изменений ${s.changes}, конфликтов ${s.conflicts}, подтверждено отправок ${s.confirmed}, пропало ${s.missing}`;
-    if (e.kind === "export") return `тестов ${s.tests}; ${Object.entries(s.fields || {}).map(([k, n]) => `${k}: ${n}`).join(", ")}`;
-    if (e.kind === "bulk") return `тестов ${s.tests}`;
-    if (e.kind === "price") return s.changes ? s.changes.map(c => `${c.f}: ${c.o ?? "—"} → ${c.n ?? "—"}`).join("; ") : `тестов ${s.tests}`;
-    if (e.kind === "init") return `тестов ${s.tests} · ${s.source || ""}`;
+    if (e.kind === "import") return `${tr("в файле")} ${s.rows}${tr(", новых")} ${s.new}${tr(", изменений")} ${s.changes}${tr(", конфликтов")} ${s.conflicts}${tr(", подтверждено отправок")} ${s.confirmed}${tr(", пропало")} ${s.missing}`;
+    if (e.kind === "export") return `${tr("тестов")} ${s.tests}; ${Object.entries(s.fields || {}).map(([k, n]) => `${k}: ${n}`).join(", ")}`;
+    if (e.kind === "bulk") return `${tr("тестов")} ${s.tests}`;
+    if (e.kind === "price") return s.changes ? s.changes.map(c => `${c.f}: ${c.o ?? "—"} → ${c.n ?? "—"}`).join("; ") : `${tr("тестов")} ${s.tests}`;
+    if (e.kind === "init") return `${tr("тестов")} ${s.tests} · ${s.source || ""}`;
     return "";
   };
-  return `<div class="view-head"><div><h2>Журнал</h2><p>Импорты, отправки, массовые правки, изменения цен и загрузки каталога — с именем и ролью. История отдельных полей — в карточке теста.</p></div></div>
-  <div class="tablewrap"><table><thead><tr><th>Когда</th><th>Кто</th><th>Что</th><th>Подробности</th></tr></thead><tbody>
-  ${S.events.map(e => `<tr><td class="muted" style="white-space:nowrap">${esc(fmtTime(e.t))}</td><td>${esc(e.u ? nameOf(e.u) : "—")}${e.r && ROLES[e.r] ? `<br><span class="muted">${esc(ROLES[e.r].l)}</span>` : ""}</td><td><span class="chip ${(kindL[e.kind] || ["plain"])[0]}">${esc((kindL[e.kind] || ["plain", e.kind])[1])}</span> ${esc(e.title || "")}</td><td class="muted">${esc(sum(e))}</td></tr>`).join("") || `<tr><td colspan="4" class="empty">${S.mode === "live" ? "Событий пока нет." : "Журнал появится после начала работы с общими данными."}</td></tr>`}
+  return `<div class="view-head"><div><h2>${tr("Журнал")}</h2><p>${tr("Импорты, отправки, массовые правки, изменения цен и загрузки каталога — с именем и ролью. История отдельных полей — в карточке теста.")}</p></div></div>
+  <div class="tablewrap"><table><thead><tr><th>${tr("Когда")}</th><th>${tr("Кто")}</th><th>${tr("Что")}</th><th>${tr("Подробности")}</th></tr></thead><tbody>
+  ${S.events.map(e => `<tr><td class="muted" style="white-space:nowrap">${esc(fmtTime(e.t))}</td><td>${esc(e.u ? nameOf(e.u) : "—")}${e.r && ROLES[e.r] ? `<br><span class="muted">${esc(tr(ROLES[e.r].l))}</span>` : ""}</td><td><span class="chip ${(kindL[e.kind] || ["plain"])[0]}">${esc((kindL[e.kind] || ["plain", e.kind])[1])}</span> ${esc(e.title || "")}</td><td class="muted">${esc(sum(e))}</td></tr>`).join("") || `<tr><td colspan="4" class="empty">${S.mode === "live" ? tr("Событий пока нет.") : tr("Журнал появится после начала работы с общими данными.")}</td></tr>`}
   </tbody></table></div>`;
 }
 
@@ -1003,44 +1009,44 @@ function viewSetup() {
   const dicts = Object.keys(S.dicts);
   if (!dicts.includes(S.dictTab)) S.dictTab = dicts[0] || "";
   const dupIds = new Set(dictDuplicates(S.dicts).filter(d => d.field === S.dictTab).flatMap(d => d.ids.map(String)));
-  return `<div class="view-head"><div><h2>Настройки</h2><p>Реестр полей решает, кто владеет полем, что уходит на сайт и что сверяется со SmartLIS. ${adm ? "" : "Менять могут только администраторы (IT)."}</p></div></div>
-  <div class="card"><h3>Реестр полей</h3>
-    <div class="tablewrap"><table><thead><tr><th>Поле</th><th>Ключ</th><th>Источник</th><th>Кто может править</th><th>На сайт</th><th>Обязательно для сайта</th></tr></thead><tbody>
+  return `<div class="view-head"><div><h2>${tr("Настройки")}</h2><p>${tr("Реестр полей решает, кто владеет полем, что уходит на сайт и что сверяется со SmartLIS.")} ${adm ? "" : tr("Менять могут только администраторы (IT).")}</p></div></div>
+  <div class="card"><h3>${tr("Реестр полей")}</h3>
+    <div class="tablewrap"><table><thead><tr><th>${tr("Поле")}</th><th>${tr("Ключ")}</th><th>${tr("Источник")}</th><th>${tr("Кто может править")}</th><th>${tr("На сайт")}</th><th>${tr("Обязательно для сайта")}</th></tr></thead><tbody>
     ${F().map((f, i) => `<tr><td>${esc(f.l)}</td><td class="mono">${esc(f.k)}</td>
-      <td>${isSl(f) ? "SmartLIS" : "Каталог"}</td>
-      <td>${adm ? `<select data-fset="${i}" data-p="e" aria-label="Кто может править ${esc(f.k)}">${Object.entries(EDIT_LABEL).filter(([v]) => isSl(f) || v !== "none").map(([v, l]) => `<option value="${v}"${editLevel(f) === v ? " selected" : ""}>${l}</option>`).join("")}</select>` : esc(EDIT_LABEL[editLevel(f)])}</td>
-      <td>${f.price ? '<span class="muted">по правилу цен</span>' : `<input type="checkbox" data-fset="${i}" data-p="web" aria-label="На сайт ${esc(f.k)}"${f.web ? " checked" : ""}${adm ? "" : " disabled"}>`}</td>
-      <td>${isWebGroup(f) ? `<input type="checkbox" data-fset="${i}" data-p="wreq" aria-label="Обязательно ${esc(f.k)}"${f.wreq ? " checked" : ""}${adm ? "" : " disabled"}>` : ""}</td></tr>`).join("")}
+      <td>${isSl(f) ? "SmartLIS" : tr("Каталог")}</td>
+      <td>${adm ? `<select data-fset="${i}" data-p="e" aria-label="${tr("Кто может править")} ${esc(f.k)}">${Object.entries(EDIT_LABEL).filter(([v]) => isSl(f) || v !== "none").map(([v, l]) => `<option value="${v}"${editLevel(f) === v ? " selected" : ""}>${esc(tr(l))}</option>`).join("")}</select>` : esc(tr(EDIT_LABEL[editLevel(f)]))}</td>
+      <td>${f.price ? tr('<span class="muted">по правилу цен</span>') : `<input type="checkbox" data-fset="${i}" data-p="web" aria-label="${tr("На сайт")} ${esc(f.k)}"${f.web ? " checked" : ""}${adm ? "" : " disabled"}>`}</td>
+      <td>${isWebGroup(f) ? `<input type="checkbox" data-fset="${i}" data-p="wreq" aria-label="${tr("Обязательно")} ${esc(f.k)}"${f.wreq ? " checked" : ""}${adm ? "" : " disabled"}>` : ""}</td></tr>`).join("")}
     </tbody></table></div>
-    <div class="alert info"><span><b>Источник SmartLIS</b>: значение приходит при импорте. Если поле разрешено править, правка уходит в SmartLIS, а при следующем импорте сравниваются три значения (каталог, SmartLIS, последняя синхронизация); если поле изменили с обеих сторон, это конфликт, и ничего не перезаписывается. <b>Каталог</b>: поле живёт только в приложении. <b>Роли</b> соответствуют группам AD: администраторы — ${esc(ROLES.admin.group)} (правят всё, кроме полей «Никто»), бизнес — ${esc(ROLES.business.group)}, маркетинг — ${esc(ROLES.marketing.group)}. В прототипе роль выбирается внизу меню слева; набор доступных ролей ограничен уровнем доступа в Share.</span></div>
+    <div class="alert info"><span><b>${tr("Источник SmartLIS")}</b>${tr(": значение приходит при импорте. Если поле разрешено править, правка уходит в SmartLIS, а при следующем импорте сравниваются три значения (каталог, SmartLIS, последняя синхронизация); если поле изменили с обеих сторон, это конфликт, и ничего не перезаписывается.")} <b>${tr("Каталог")}</b>${tr(": поле живёт только в приложении.")} <b>${tr("Роли")}</b> ${tr("соответствуют группам AD: администраторы —")} ${esc(ROLES.admin.group)} ${tr("(правят всё, кроме полей «Никто»), бизнес —")} ${esc(ROLES.business.group)}${tr(", маркетинг —")} ${esc(ROLES.marketing.group)}${tr(". В прототипе роль выбирается внизу меню слева; набор доступных ролей ограничен уровнем доступа в Share.")}</span></div>
   </div>
-  <div class="card"><h3>Пороги защиты</h3><div class="row">
-    <div class="field"><label for="set-mass">Отправка: макс. тестов на одно поле без подтверждения</label><input type="number" id="set-mass" min="10" value="${S.settings.massLimit}"${adm ? "" : " disabled"}></div>
-    <div class="field"><label for="set-pmax">Цены: макс. тестов за одну массовую правку</label><input type="number" id="set-pmax" min="1" max="500" value="${S.settings.priceBulkMax ?? DEFAULT_SETTINGS.priceBulkMax}"${adm ? "" : " disabled"}></div>
-    <div class="field"><label for="set-pjump">Цены: выделять изменение больше, %</label><input type="number" id="set-pjump" min="1" max="500" value="${Math.round((S.settings.priceJump ?? DEFAULT_SETTINGS.priceJump) * 100)}"${adm ? "" : " disabled"}></div>
-    ${adm ? `<button class="btn" data-act="save-settings">Сохранить</button>` : ""}</div></div>
-  <div class="card"><h3>Справочники</h3>
+  <div class="card"><h3>${tr("Пороги защиты")}</h3><div class="row">
+    <div class="field"><label for="set-mass">${tr("Отправка: макс. тестов на одно поле без подтверждения")}</label><input type="number" id="set-mass" min="10" value="${S.settings.massLimit}"${adm ? "" : " disabled"}></div>
+    <div class="field"><label for="set-pmax">${tr("Цены: макс. тестов за одну массовую правку")}</label><input type="number" id="set-pmax" min="1" max="500" value="${S.settings.priceBulkMax ?? DEFAULT_SETTINGS.priceBulkMax}"${adm ? "" : " disabled"}></div>
+    <div class="field"><label for="set-pjump">${tr("Цены: выделять изменение больше, %")}</label><input type="number" id="set-pjump" min="1" max="500" value="${Math.round((S.settings.priceJump ?? DEFAULT_SETTINGS.priceJump) * 100)}"${adm ? "" : " disabled"}></div>
+    ${adm ? `<button class="btn" data-act="save-settings">${tr("Сохранить")}</button>` : ""}</div></div>
+  <div class="card"><h3>${tr("Справочники")}</h3>
     <div class="tabs">${dicts.map(d => `<button data-act="dict-tab" data-d="${esc(d)}" aria-pressed="${d === S.dictTab}">${esc(d)} (${S.dicts[d].length})</button>`).join("")}</div>
-    <div class="tablewrap" style="max-height:360px;overflow:auto"><table><thead><tr><th>ID SmartLIS</th><th>Название</th><th></th></tr></thead><tbody>
-    ${(S.dicts[S.dictTab] || []).map(([id, n]) => `<tr><td class="mono">${esc(id)}</td><td>${esc(n)}</td><td>${dupIds.has(String(id)) ? '<span class="chip bad">дубль названия</span>' : ""}</td></tr>`).join("")}
+    <div class="tablewrap" style="max-height:360px;overflow:auto"><table><thead><tr><th>ID SmartLIS</th><th>${tr("Название")}</th><th></th></tr></thead><tbody>
+    ${(S.dicts[S.dictTab] || []).map(([id, n]) => `<tr><td class="mono">${esc(id)}</td><td>${esc(n)}</td><td>${dupIds.has(String(id)) ? tr('<span class="chip bad">дубль названия</span>') : ""}</td></tr>`).join("")}
     </tbody></table></div>
-    <span class="muted">Справочники приходят из SmartLIS. Для SmartComm API к ним нужно будет добавить коды: при обновлении связанные сущности передаются по коду.</span></div>`;
+    <span class="muted">${tr("Справочники приходят из SmartLIS. Для SmartComm API к ним нужно будет добавить коды: при обновлении связанные сущности передаются по коду.")}</span></div>`;
 }
 
 async function saveFieldsAndSettings(next) {
   if (S.mode === "local") { Object.assign(S, next); renderAll(); return; }
   try {
     await withRetry(() => db.doc("config/main").update({ fields: next.fields || S.fields, settings: next.settings || S.settings }));
-    await db.collection("events").add({ t: new Date().toISOString(), u: S.me, r: S.role, kind: "settings", title: "Изменены настройки", summary: {} });
-    toast("Настройки сохранены.");
-  } catch (e) { toast("Не удалось сохранить настройки: " + (e.code || e.message), true); }
+    await db.collection("events").add({ t: new Date().toISOString(), u: S.me, r: S.role, kind: "settings", title: tr("Изменены настройки"), summary: {} });
+    toast(tr("Настройки сохранены."));
+  } catch (e) { toast(tr("Не удалось сохранить настройки: ") + (e.code || e.message), true); }
 }
 
 /* ================= modal ================= */
 function ask(title, text, okLabel) {
   return new Promise(resolve => {
     $("#modal").innerHTML = `<div class="modal-back"><div class="modal" role="dialog" aria-modal="true" aria-label="${esc(title)}"><h3>${esc(title)}</h3>${text ? `<p style="margin:0" class="muted">${esc(text)}</p>` : ""}
-      <div class="row" style="justify-content:flex-end"><button class="btn" id="m-no">Отмена</button><button class="btn primary" id="m-yes">${esc(okLabel || "Да")}</button></div></div></div>`;
+      <div class="row" style="justify-content:flex-end"><button class="btn" id="m-no">${tr("Отмена")}</button><button class="btn primary" id="m-yes">${esc(okLabel || tr("Да"))}</button></div></div></div>`;
     const done = (v) => { $("#modal").innerHTML = ""; resolve(v); };
     $("#m-yes").onclick = () => done(true); $("#m-no").onclick = () => done(false); $("#m-yes").focus();
   });
@@ -1050,8 +1056,8 @@ function ask(title, text, okLabel) {
 function askEx({ title, html, ok, typed, typedLabel, danger }) {
   return new Promise(resolve => {
     $("#modal").innerHTML = `<div class="modal-back"><div class="modal wide" role="dialog" aria-modal="true" aria-label="${esc(title)}"><h3>${esc(title)}</h3>${html || ""}
-      ${typed ? `<div class="field"><label for="m-typed">${esc(typedLabel || "Введите для подтверждения")}: <b class="mono">${esc(typed)}</b></label><input type="text" id="m-typed" autocomplete="off"></div>` : ""}
-      <div class="row" style="justify-content:flex-end"><button class="btn" id="m-no">Отмена</button><button class="btn ${danger ? "danger" : "primary"}" id="m-yes"${typed ? " disabled" : ""}>${esc(ok || "Да")}</button></div></div></div>`;
+      ${typed ? `<div class="field"><label for="m-typed">${esc(typedLabel || tr("Введите для подтверждения"))}: <b class="mono">${esc(typed)}</b></label><input type="text" id="m-typed" autocomplete="off"></div>` : ""}
+      <div class="row" style="justify-content:flex-end"><button class="btn" id="m-no">${tr("Отмена")}</button><button class="btn ${danger ? "danger" : "primary"}" id="m-yes"${typed ? " disabled" : ""}>${esc(ok || tr("Да"))}</button></div></div></div>`;
     const done = (v) => { $("#modal").innerHTML = ""; resolve(v); };
     $("#m-yes").onclick = () => done(true); $("#m-no").onclick = () => done(false);
     const ti = $("#m-typed");
@@ -1062,21 +1068,21 @@ function askEx({ title, html, ok, typed, typedLabel, danger }) {
 const pct = (r) => (r === null ? "—" : `${r > 0 ? "+" : ""}${Math.round(r * 100)}%`);
 function priceTable(rows) {
   const fm = FM();
-  return `<div class="tablewrap" style="max-height:280px;overflow:auto"><table><thead><tr><th>Kods</th><th>Цена</th><th class="num">Было</th><th class="num">Станет</th><th class="num">Изменение</th></tr></thead><tbody>
+  return `<div class="tablewrap" style="max-height:280px;overflow:auto"><table><thead><tr><th>Kods</th><th>${tr("Цена")}</th><th class="num">${tr("Было")}</th><th class="num">${tr("Станет")}</th><th class="num">${tr("Изменение")}</th></tr></thead><tbody>
     ${rows.slice(0, 200).map(r => `<tr${r.jump ? ' class="jump"' : ""}><td class="mono">${esc(r.code)}</td><td>${esc(fm[r.f] ? fm[r.f].l : r.f)}</td><td class="num">${esc(disp(r.f, r.o))}</td><td class="num"><b>${esc(disp(r.f, r.n))}</b></td><td class="num">${esc(pct(r.rel))}</td></tr>`).join("")}
-    </tbody></table></div>${rows.length > 200 ? `<span class="muted">Показаны первые 200 из ${rows.length}.</span>` : ""}`;
+    </tbody></table></div>${rows.length > 200 ? `<span class="muted">${tr("Показаны первые 200 из")} ${rows.length}.</span>` : ""}`;
 }
 async function confirmPrices(rows, nTests) {
   const jumps = rows.filter(r => r.jump).length;
   const lim = Math.round((S.settings.priceJump ?? DEFAULT_SETTINGS.priceJump) * 100);
-  const step1 = await askEx({ title: nTests > 1 ? `Изменение цен у ${nTests} тестов` : `Изменение цены: ${rows[0].code}`,
-    html: `<div class="alert warn"><span>Цены уходят в SmartLIS и на сайт. Проверьте значения.${jumps ? ` Выделены изменения больше ${lim}% или без прежней цены: <b>${jumps}</b>.` : ""}</span></div>${priceTable(rows)}`,
-    ok: "Продолжить" });
+  const step1 = await askEx({ title: nTests > 1 ? `${tr("Изменение цен у")} ${nTests} ${tr("тестов")}` : `${tr("Изменение цены:")} ${rows[0].code}`,
+    html: `<div class="alert warn"><span>${tr("Цены уходят в SmartLIS и на сайт. Проверьте значения.")}${jumps ? ` ${tr("Выделены изменения больше")} ${lim}${tr("% или без прежней цены:")} <b>${jumps}</b>.` : ""}</span></div>${priceTable(rows)}`,
+    ok: tr("Продолжить") });
   if (!step1) return false;
-  return askEx({ title: "Подтвердите изменение цен ещё раз",
-    html: `<p class="muted" style="margin:0">Изменение будет записано в журнал с вашим именем и ролью.</p>`,
-    typed: nTests > 1 ? String(nTests) : rows[0].code, typedLabel: nTests > 1 ? "Введите число тестов" : "Введите код теста",
-    ok: "Изменить цены", danger: true });
+  return askEx({ title: tr("Подтвердите изменение цен ещё раз"),
+    html: `<p class="muted" style="margin:0">${tr("Изменение будет записано в журнал с вашим именем и ролью.")}</p>`,
+    typed: nTests > 1 ? String(nTests) : rows[0].code, typedLabel: nTests > 1 ? tr("Введите число тестов") : tr("Введите код теста"),
+    ok: tr("Изменить цены"), danger: true });
 }
 
 /* ================= copy / download ================= */
@@ -1085,14 +1091,14 @@ function payload(what) {
 }
 async function copyJson(what) {
   const text = payload(what);
-  try { await navigator.clipboard.writeText(text); toast("JSON скопирован."); }
-  catch (e) { toast("Браузер не дал скопировать. Выделите текст в окне JSON и скопируйте вручную.", true); }
+  try { await navigator.clipboard.writeText(text); toast(tr("JSON скопирован.")); }
+  catch (e) { toast(tr("Браузер не дал скопировать. Выделите текст в окне JSON и скопируйте вручную."), true); }
 }
 async function downloadJson(what) {
   if (!downloads) return;
   const d = new Date().toISOString().slice(0, 10);
   try { await downloads.save({ filename: what === "web" ? `web_catalog_${d}.json` : `smartlis_delta_${d}.json`, data: payload(what) }); }
-  catch (e) { if (!(e && /cancel|declin|abort/i.test(String(e.code || e.message)))) toast("Не удалось скачать файл.", true); }
+  catch (e) { if (!(e && /cancel|declin|abort/i.test(String(e.code || e.message)))) toast(tr("Не удалось скачать файл."), true); }
 }
 
 /* ================= events ================= */
@@ -1112,12 +1118,13 @@ document.addEventListener("click", async (e) => {
   if (el.dataset.open && !el.dataset.act) { S.openCode = el.dataset.open; S.edits = {}; renderDrawer(); return; }
   const a = el.dataset.act;
   if (a === "go") return go(el.dataset.v);
-  if (a === "close") { if (Object.keys(S.edits).length && !(await ask("Закрыть без сохранения?", "Несохранённые изменения пропадут.", "Закрыть"))) return; S.openCode = null; S.edits = {}; $("#drawer").innerHTML = ""; return; }
+  if (a === "close") { if (Object.keys(S.edits).length && !(await ask(tr("Закрыть без сохранения?"), tr("Несохранённые изменения пропадут."), tr("Закрыть")))) return; S.openCode = null; S.edits = {}; $("#drawer").innerHTML = ""; return; }
   if (a === "save") return saveCard();
   if (a === "discard") { S.edits = {}; renderDrawer(); return; }
   if (a === "resolve") return resolveConflict(el.dataset.k, el.dataset.how);
   if (a === "page") { S.page += Number(el.dataset.d); renderAll(); $("#main").scrollTop = 0; return; }
   if (a === "reset-filters") { S.f = { q: "", status: "", check: "" }; S.cf = {}; S.page = 0; renderAll(); return; }
+  if (a === "lang") { setLang(el.dataset.l); renderAll(); if (S.openCode) renderDrawer(); return; }
   if (a === "colpick") { S.colpick = !S.colpick; renderAll(); return; }
   if (a === "cols-default") { S.cols = DEFAULT_COLS.slice(); saveViewPrefs(); renderAll(); return; }
   if (a === "sort-clear") { S.sort = { k: null, dir: 1 }; saveViewPrefs(); renderAll(); return; }
@@ -1134,13 +1141,13 @@ document.addEventListener("click", async (e) => {
   if (a === "import-apply") return applyImport();
   if (a === "excel-cancel") { S.excelPlan = null; renderAll(); return; }
   if (a === "excel-apply") return applyExcel();
-  if (a === "init-seed") { const seed = await loadSeed(); const ok = await ask("Начать работу с этим снимком?", `Будут созданы общие данные: ${seed.tests.length} тестов на ${seed.snapshotDate}. Потом их можно заменить актуальным Excel или обновить импортом из SmartLIS.`, "Начать"); if (!ok) return; await initStore(seed.tests, seed.dicts, seed.source); return; }
+  if (a === "init-seed") { const seed = await loadSeed(); const ok = await ask(tr("Начать работу с этим снимком?"), `${tr("Будут созданы общие данные:")} ${seed.tests.length} ${tr("тестов на")} ${seed.snapshotDate}${tr(". Потом их можно заменить актуальным Excel или обновить импортом из SmartLIS.")}`, tr("Начать")); if (!ok) return; await initStore(seed.tests, seed.dicts, seed.source); return; }
   if (a === "dict-tab") { S.dictTab = el.dataset.d; renderAll(); return; }
   if (a === "save-settings") {
     const n = Number($("#set-mass").value), pm = Number($("#set-pmax").value), pj = Number($("#set-pjump").value);
-    if (!(n >= 10)) { toast("Порог отправки должен быть не меньше 10.", true); return; }
-    if (!(pm >= 1 && pm <= 500)) { toast("Лимит массовой правки цен: от 1 до 500 тестов.", true); return; }
-    if (!(pj >= 1)) { toast("Порог выделения изменения цены — от 1%.", true); return; }
+    if (!(n >= 10)) { toast(tr("Порог отправки должен быть не меньше 10."), true); return; }
+    if (!(pm >= 1 && pm <= 500)) { toast(tr("Лимит массовой правки цен: от 1 до 500 тестов."), true); return; }
+    if (!(pj >= 1)) { toast(tr("Порог выделения изменения цены — от 1%."), true); return; }
     return saveFieldsAndSettings({ settings: { ...S.settings, massLimit: n, priceBulkMax: pm, priceJump: pj / 100 } });
   }
 });
@@ -1155,7 +1162,7 @@ document.addEventListener("change", async (e) => {
     if (!el.checked) { delete S.cf[el.dataset.col]; if (S.sort.k === el.dataset.col) S.sort = { k: null, dir: 1 }; }
     saveViewPrefs(); renderAll(); return;
   }
-  if (el.id === "role-pick") { pickRole(el.value); S.edits = {}; S.selected.clear(); toast(`Роль: ${ROLES[S.role].l}.`); renderAll(); return; }
+  if (el.id === "role-pick") { pickRole(el.value); S.edits = {}; S.selected.clear(); toast(`${tr("Роль:")} ${tr(ROLES[S.role].l)}.`); renderAll(); return; }
   if (el.id === "f-group") { S.group = el.checked; S.page = 0; renderAll(); return; }
   if (el.dataset.sel) { el.checked ? S.selected.add(el.dataset.sel) : S.selected.delete(el.dataset.sel); renderAll(); return; }
   if (el.id === "bulk-field") { $("#bulk-value-wrap").innerHTML = bulkValueInput(el.value); return; }
@@ -1199,7 +1206,7 @@ document.addEventListener("input", (e) => {
     if (same(v, cv(t, f.k))) delete S.edits[f.k]; else S.edits[f.k] = v;
     e.target.classList.toggle("dirty", f.k in S.edits);
     const foot = document.querySelector(".drawer footer");
-    if (foot) { const n = Object.keys(S.edits).length; foot.querySelector(".muted").textContent = n ? `Изменено полей: ${n}` : "Нет несохранённых изменений"; foot.querySelector('[data-act="save"]').disabled = !n || !canWrite(); foot.querySelector('[data-act="discard"]').disabled = !n; }
+    if (foot) { const n = Object.keys(S.edits).length; foot.querySelector(".muted").textContent = n ? `${tr("Изменено полей:")} ${n}` : tr("Нет несохранённых изменений"); foot.querySelector('[data-act="save"]').disabled = !n || !canWrite(); foot.querySelector('[data-act="discard"]').disabled = !n; }
   }
 });
 document.addEventListener("toggle", (e) => {

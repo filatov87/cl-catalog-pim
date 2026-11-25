@@ -1,5 +1,11 @@
 /* ===== CL Testu katalogs — pure logic (no DOM). Shared by the page and by tests. ===== */
 
+// UI language hook: the page sets globalThis.CL_TR (Russian source text → current language). Placeholders {0}, {1}…
+const tr = (s, ...a) => {
+  const f = typeof globalThis !== "undefined" && typeof globalThis.CL_TR === "function" ? globalThis.CL_TR : null;
+  const r = f ? f(s) : s;
+  return a.length ? r.replace(/\{(\d+)\}/g, (m, i) => String(a[Number(i)])) : r;
+};
 const OWNER_LABEL = { smartlis: "SmartLIS", catalog: "Каталог" };
 // Who may edit a field. Administrators (IT) may edit every field except "none".
 const EDIT_LABEL = { none: "Никто", business: "Бизнес", marketing: "Маркетинг", admin: "Только администраторы" };
@@ -249,7 +255,7 @@ function parseCsv(text) {
 // Strict UTF-8 decode; returns {text} or {error}
 function decodeUtf8(buf) {
   try { return { text: new TextDecoder("utf-8", { fatal: true }).decode(buf) }; }
-  catch (e) { return { error: "Файл не в кодировке UTF-8: латышские буквы (ā, ē, ņ…) потеряются. Выгрузите CSV заново с кодировкой UTF-8." }; }
+  catch (e) { return { error: tr("Файл не в кодировке UTF-8: латышские буквы (ā, ē, ņ…) потеряются. Выгрузите CSV заново с кодировкой UTF-8.") }; }
 }
 
 /* ---------- Import from SmartLIS ---------- */
@@ -257,10 +263,10 @@ function decodeUtf8(buf) {
 function planImport(rows, tests, fields, dicts, settings) {
   const fm = fieldMap(fields);
   const plan = { errors: [], warnings: [], newTests: [], changes: [], conflicts: [], converged: [], missing: [], cleared: {}, byField: {}, unknownHeaders: [], absentFields: [], unknownIds: [], rowsCount: 0, patches: {} };
-  if (!rows.length) { plan.errors.push("Файл пустой."); return plan; }
+  if (!rows.length) { plan.errors.push(tr("Файл пустой.")); return plan; }
   const header = rows[0].map(h => String(h ?? "").trim());
   const ci = header.indexOf("code");
-  if (ci < 0) { plan.errors.push("В первой строке нет колонки code. Вставьте выгрузку вместе со строкой заголовков."); return plan; }
+  if (ci < 0) { plan.errors.push(tr("В первой строке нет колонки code. Вставьте выгрузку вместе со строкой заголовков.")); return plan; }
   const importFields = fields.filter(f => isSl(f) && header.includes(f.k));
   plan.unknownHeaders = header.filter(h => h && h !== "code" && !fm[h]);
   plan.absentFields = fields.filter(f => isSl(f) && !header.includes(f.k)).map(f => f.k);
@@ -272,12 +278,12 @@ function planImport(rows, tests, fields, dicts, settings) {
     const row = rows[r];
     const code = String(row[ci] ?? "").trim();
     if (!code) continue;
-    if (seen.has(code)) { plan.errors.push(`Код ${code} встречается в файле дважды.`); continue; }
+    if (seen.has(code)) { plan.errors.push(tr("Код {0} встречается в файле дважды.", code)); continue; }
     seen.add(code);
     const rec = {};
     for (const f of importFields) {
       const raw = row[col[f.k]];
-      if (f.k === "govcode" && typeof raw === "number" && raw > 99999) plan.errors.push(`govcode у ${code} склеен Excel в число ${raw}. Сделайте колонку текстовой и выгрузите заново.`);
+      if (f.k === "govcode" && typeof raw === "number" && raw > 99999) plan.errors.push(tr("govcode у {0} склеен Excel в число {1}. Сделайте колонку текстовой и выгрузите заново.", code, raw));
       rec[f.k] = parseCell(f.k, raw);
     }
     if (typeof rec.name === "string" && /[A-Za-z]\?[A-Za-z]/.test(rec.name)) suspicious++;
@@ -285,8 +291,8 @@ function planImport(rows, tests, fields, dicts, settings) {
     incoming.set(code, rec);
   }
   plan.rowsCount = incoming.size;
-  if (suspicious > 20) plan.errors.push(`У ${suspicious} тестов в названии «?» вместо букв: файл сохранён не в UTF-8.`);
-  if (tests.size > 50 && incoming.size < tests.size * 0.5) plan.errors.push(`В файле ${incoming.size} тестов, а в каталоге ${tests.size}. Похоже, выгрузка неполная (например, только первая страница результатов).`);
+  if (suspicious > 20) plan.errors.push(tr("У {0} тестов в названии «?» вместо букв: файл сохранён не в UTF-8.", suspicious));
+  if (tests.size > 50 && incoming.size < tests.size * 0.5) plan.errors.push(tr("В файле {0} тестов, а в каталоге {1}. Похоже, выгрузка неполная (например, только первая страница результатов).", incoming.size, tests.size));
 
   // dictionary ids check
   for (const f of importFields.filter(f => f.t === "dict")) {
@@ -564,12 +570,12 @@ const filledCount = (r, from) => r.slice(from).filter(c => !isEmpty(c)).length;
 function buildFromExcel(sheets, fields) {
   const res = { errors: [], warnings: [], tests: [], dicts: {} };
   const cat = sheets.Catalog;
-  if (!cat || cat.length < 3) { res.errors.push("В файле нет листа Catalog или он пустой."); return res; }
+  if (!cat || cat.length < 3) { res.errors.push(tr("В файле нет листа Catalog или он пустой.")); return res; }
   const biz = cat[0].map(h => String(h ?? "").trim());
   const tech = cat[1].map(h => String(h ?? "").trim());
   const col = {}; tech.forEach((h, i) => { if (h && col[h] === undefined) col[h] = i; });
   const animal = biz.findIndex(h => /Dzīvnieka/i.test(h));
-  if (col.code === undefined) { res.errors.push("На листе Catalog во второй строке нет колонки code."); return res; }
+  if (col.code === undefined) { res.errors.push(tr("На листе Catalog во второй строке нет колонки code.")); return res; }
 
   const dict = {};
   for (const r of (sheets.Dictionary || []).slice(1)) {
@@ -585,14 +591,14 @@ function buildFromExcel(sheets, fields) {
     const ci = h.indexOf("code");
     if (ci >= 0) { dbRows = new Map(); for (const r of sheets.DB_Import.slice(1)) { const c = String(r[ci] ?? "").trim(); if (c) dbRows.set(c, Object.fromEntries(h.map((k, i) => [k, r[i]]))); } }
   }
-  if (!dbRows) res.warnings.push("Лист DB_Import не найден: значения SmartLIS взяты из Catalog. Сделайте импорт из SmartLIS сразу после переноса.");
+  if (!dbRows) res.warnings.push(tr("Лист DB_Import не найден: значения SmartLIS взяты из Catalog. Сделайте импорт из SmartLIS сразу после переноса."));
 
   const now = new Date().toISOString();
   const catCols = catalogFieldsInSheet(fields, col);
   const firstCatalogCol = Math.min(...catCols.map(c => c[1]), tech.length);
   const known = new Set([...fields.map(f => f.k), ...fields.map(f => f.jk).filter(Boolean), "code", "publish"]);
   const unknown = tech.filter(h => h && !known.has(h));
-  if (unknown.length) res.warnings.push(`Колонки Catalog без поля в реестре (не перенесены): ${unknown.join(", ")}. Добавьте поле в «Настройки → Реестр полей», если оно нужно.`);
+  if (unknown.length) res.warnings.push(tr("Колонки Catalog без поля в реестре (не перенесены): {0}. Добавьте поле в «Настройки → Реестр полей», если оно нужно.", unknown.join(", ")));
   // Duplicate codes: keep the row with more filled catalog/site cells, report the other one
   const pick = {};
   for (let ri = 2; ri < cat.length; ri++) {
@@ -600,7 +606,7 @@ function buildFromExcel(sheets, fields) {
     const score = filledCount(cat[ri], firstCatalogCol);
     if (!pick[code]) { pick[code] = { ri, score }; continue; }
     const prev = pick[code]; const keep = score > prev.score ? ri : prev.ri; const drop = keep === ri ? prev.ri : ri;
-    res.warnings.push(`Код ${code} дважды на листе Catalog (строки ${prev.ri + 1} и ${ri + 1}): взята строка ${keep + 1} (в ней больше заполненных полей каталога), строку ${drop + 1} удалите в Excel.`);
+    res.warnings.push(tr("Код {0} дважды на листе Catalog (строки {1} и {2}): взята строка {3} (в ней больше заполненных полей каталога), строку {4} удалите в Excel.", code, prev.ri + 1, ri + 1, keep + 1, drop + 1));
     pick[code] = { ri: keep, score: Math.max(score, prev.score) };
   }
   for (let ri = 2; ri < cat.length; ri++) {
@@ -624,7 +630,7 @@ function buildFromExcel(sheets, fields) {
       if (f.t === "dict" && typeof v === "string") {
         const slName = dictName(dict, f.k, t.sl[f.k]);
         if (slName === v) v = t.sl[f.k];
-        else { const id = reverse(f.k, v); if (id === undefined) res.warnings.push(`${code}: «${v}» нет в справочнике ${f.k}`); v = id === undefined ? t.sl[f.k] : id; }
+        else { const id = reverse(f.k, v); if (id === undefined) res.warnings.push(tr("{0}: «{1}» нет в справочнике {2}", code, v, f.k)); v = id === undefined ? t.sl[f.k] : id; }
       }
       t.val[f.k] = isEmpty(v) && f.k !== "catalog" ? t.sl[f.k] : v;
       t.base[f.k] = t.sl[f.k];
