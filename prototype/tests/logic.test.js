@@ -129,13 +129,14 @@ test("import: duplicate codes and missing code column are errors", () => {
   assert.ok(L.planImport([["name"], ["x"]], tests, F, sample.dicts, S).errors.length);
 });
 
-test("edit levels: prices admin-only, launch read-only, catalog fields editable", () => {
+test("edit levels (25.11): SmartLIS fields and prices — business, launch read-only, site texts — marketing", () => {
   const lvl = (k) => L.editLevel(F.find(f => f.k === k));
-  assert.equal(lvl("fin_price2"), "admin");
+  assert.equal(lvl("fin_price2"), "business");
   assert.equal(lvl("launch"), "none");
-  assert.equal(lvl("sampleid"), "editor");
-  assert.equal(lvl("publish"), "editor");
-  assert.equal(lvl("govcode"), "admin");
+  assert.equal(lvl("sampleid"), "business");
+  assert.equal(lvl("publish"), "business");
+  assert.equal(lvl("govcode"), "business");
+  assert.equal(lvl("codename"), "marketing");
 });
 
 test("edited SmartLIS price is exported; SmartLIS-only change of an unedited price overwrites", () => {
@@ -232,4 +233,44 @@ test("column sort: numbers numerically, text by Latvian alphabet, empty values l
   assert.equal(codes("fin_price2", -1), "DABC");
   assert.equal(codes("name", 1), "BADC", "C before Č in Latvian order");
   assert.equal(codes("name", -1), "DABC");
+});
+
+/* ---- Roles by AD groups and price protection (25.11.2026) ---- */
+test("field rights by role: business edits SmartLIS fields, prices, publish, Veterinary; marketing edits site texts", () => {
+  const fm = L.fieldMap(F);
+  const can = (k, r) => L.canEditWith(k === "code" ? L.CODE_FIELD : fm[k], [r]);
+  for (const k of ["name", "sampleid", "catalog", "fin_price2", "publish", "Veterinary"]) { assert.equal(can(k, "business"), true, k); assert.equal(can(k, "marketing"), false, k); }
+  for (const k of ["title", "longDescription", "longDescription_ru", "description2_en", "media1", "animalSpecies", "Referents", "metaTitle"]) { assert.equal(can(k, "marketing"), true, k); assert.equal(can(k, "business"), false, k); }
+  for (const k of ["launch", "template", "code"]) assert.equal(can(k, "admin"), false, `${k}: nobody`);
+  assert.equal(can("fin_price2", "admin"), true);
+  assert.equal(can("title", "viewer"), false);
+  assert.equal(L.canEditWith(fm.title, ["business", "marketing"]), true, "several groups add up");
+});
+
+test("actions by role", () => {
+  assert.equal(L.canDoWith("import", ["business"]), true);
+  assert.equal(L.canDoWith("export", ["marketing"]), false);
+  assert.equal(L.canDoWith("web", ["marketing"]), true);
+  assert.equal(L.canDoWith("settings", ["business"]), false);
+  assert.equal(L.canDoWith("settings", ["admin"]), true);
+});
+
+test("registry saved before 25.11 (editor/admin levels) moves to role defaults", () => {
+  const old = F.map(f => ({ ...f, e: f.e === "none" ? "none" : f.price ? "admin" : "editor" }));
+  const m = L.mergeFields(old, F);
+  assert.equal(m.find(f => f.k === "fin_price2").e, "business");
+  assert.equal(m.find(f => f.k === "title").e, "marketing");
+  const fresh = L.mergeFields(F.map(f => ({ ...f, e: f.k === "title" ? "admin" : f.e })), F);
+  assert.equal(fresh.find(f => f.k === "title").e, "admin", "a level set by an administrator is kept");
+});
+
+test("price changes are listed with relative change; big jumps flagged", () => {
+  const t = { code: "ALT", sl: { fin_price2: 10, fin_price1: null }, val: {} };
+  const rows = L.priceChanges(t, { fin_price2: 11, fin_price1: 5, name: "x" }, F, S);
+  assert.equal(rows.length, 2);
+  const p2 = rows.find(r => r.f === "fin_price2");
+  assert.ok(Math.abs(p2.rel - 0.1) < 1e-9); assert.equal(p2.jump, false);
+  assert.equal(rows.find(r => r.f === "fin_price1").jump, true, "no previous price → flagged");
+  assert.equal(L.priceChanges(t, { fin_price2: 20 }, F, S)[0].jump, true);
+  assert.equal(L.priceChanges(t, { fin_price2: 10 }, F, S).length, 0);
 });

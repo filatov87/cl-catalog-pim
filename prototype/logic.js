@@ -1,81 +1,98 @@
 /* ===== CL Testu katalogs — pure logic (no DOM). Shared by the page and by tests. ===== */
 
 const OWNER_LABEL = { smartlis: "SmartLIS", catalog: "Каталог" };
-const EDIT_LABEL = { none: "Никто", editor: "Редактор", admin: "Администратор" };
+// Who may edit a field. Administrators (IT) may edit every field except "none".
+const EDIT_LABEL = { none: "Никто", business: "Бизнес", marketing: "Маркетинг", admin: "Только администраторы" };
+// Roles = AD groups (decision 25.11.2026). A person in several groups gets the union of rights.
+const ROLES = {
+  admin: { l: "Администратор (IT)", group: "DPT CLA ITD Admins" },
+  business: { l: "Бизнес", group: "DPT CLA Administracija" },
+  marketing: { l: "Маркетинг", group: "DPT CLA Marketinga nodala" },
+  viewer: { l: "Просмотр", group: "группа уточняется" },
+};
+// Actions beyond editing fields; administrators may do all of them
+const ACTIONS = {
+  import: { l: "Импорт из SmartLIS", roles: ["business"] },
+  export: { l: "Отправка в SmartLIS", roles: ["business"] },
+  web: { l: "Выгрузка Web JSON для сайта", roles: ["marketing"] },
+  settings: { l: "Реестр полей, настройки, перенос из Excel", roles: [] },
+};
 
 // k: technical key, l: label, o: owner, t: type, web: goes to site JSON, jk: key in site JSON,
 // req: required value (no empty), wreq: required for published tests, price: price field
 // g: group — smartlis | price | catalog | web (LV) | web_ru | web_en | media; tr: LV field this one translates
 const DEFAULT_FIELDS = [
-  { k: "name", l: "Testa nosaukums", g: "smartlis", o: "smartlis", t: "text", web: 1, e: "editor" },
+  { k: "name", l: "Testa nosaukums", g: "smartlis", o: "smartlis", t: "text", web: 1, e: "business" },
   { k: "launch", l: "Launch (sastāvs)", g: "smartlis", o: "smartlis", t: "text", web: 1, e: "none" },
-  { k: "loinccode", l: "LOINC", g: "smartlis", o: "smartlis", t: "text", web: 1, e: "admin" },
-  { k: "active", l: "Aktīvs", g: "smartlis", o: "smartlis", t: "bool", web: 1, e: "admin" },
-  { k: "labcode", l: "Laboratorijas kods", g: "smartlis", o: "smartlis", t: "text", web: 1, e: "admin" },
-  { k: "testtype", l: "Testa tips", g: "smartlis", o: "smartlis", t: "dict", web: 1, e: "admin" },
-  { k: "govcode", l: "NVD kods", g: "smartlis", o: "smartlis", t: "text", web: 1, e: "admin" },
-  { k: "paytype", l: "Apmaksa", g: "smartlis", o: "smartlis", t: "text", web: 1, e: "admin" },
-  { k: "order", l: "Pasūtāms", g: "smartlis", o: "smartlis", t: "bool", web: 1, e: "admin" },
-  { k: "bill", l: "Rēķināms", g: "smartlis", o: "smartlis", t: "bool", web: 1, e: "admin" },
-  { k: "report", l: "Pārskatā", g: "smartlis", o: "smartlis", t: "bool", web: 1, e: "admin" },
-  { k: "catalog", l: "Katalogā (Catalog API)", g: "smartlis", o: "smartlis", t: "bool", req: 1, web: 1, e: "editor" },
-  { k: "timesolve", l: "Izpildes laiks, dienas", g: "smartlis", o: "smartlis", t: "num", web: 1, e: "admin" },
-  { k: "sectionid", l: "Sekcija", g: "smartlis", o: "smartlis", t: "dict", web: 1, e: "admin" },
-  { k: "sectiono", l: "Sekciju grupa", g: "smartlis", o: "smartlis", t: "dict", web: 1, e: "admin" },
-  { k: "sampleid", l: "Materiāls", g: "smartlis", o: "smartlis", t: "dict", web: 1, e: "editor" },
-  { k: "fin_price2", l: "Pašreizējā cena, EUR", g: "price", o: "smartlis", t: "num", price: 1, e: "admin" },
-  { k: "fin_price1", l: "NVD cena, EUR", g: "price", o: "smartlis", t: "num", price: 1, e: "admin" },
-  { k: "fin_cost1", l: "Cena ar atlaidi, EUR", g: "price", o: "smartlis", t: "num", price: 1, e: "admin" },
-  { k: "fin_cost2", l: "Vecā cena (vecie līgumi), EUR", g: "price", o: "smartlis", t: "num", price: 1, e: "admin" },
+  { k: "loinccode", l: "LOINC", g: "smartlis", o: "smartlis", t: "text", web: 1, e: "business" },
+  { k: "active", l: "Aktīvs", g: "smartlis", o: "smartlis", t: "bool", web: 1, e: "business" },
+  { k: "labcode", l: "Laboratorijas kods", g: "smartlis", o: "smartlis", t: "text", web: 1, e: "business" },
+  { k: "testtype", l: "Testa tips", g: "smartlis", o: "smartlis", t: "dict", web: 1, e: "business" },
+  { k: "govcode", l: "NVD kods", g: "smartlis", o: "smartlis", t: "text", web: 1, e: "business" },
+  { k: "paytype", l: "Apmaksa", g: "smartlis", o: "smartlis", t: "text", web: 1, e: "business" },
+  { k: "order", l: "Pasūtāms", g: "smartlis", o: "smartlis", t: "bool", web: 1, e: "business" },
+  { k: "bill", l: "Rēķināms", g: "smartlis", o: "smartlis", t: "bool", web: 1, e: "business" },
+  { k: "report", l: "Pārskatā", g: "smartlis", o: "smartlis", t: "bool", web: 1, e: "business" },
+  { k: "catalog", l: "Katalogā (Catalog API)", g: "smartlis", o: "smartlis", t: "bool", req: 1, web: 1, e: "business" },
+  { k: "timesolve", l: "Izpildes laiks, dienas", g: "smartlis", o: "smartlis", t: "num", web: 1, e: "business" },
+  { k: "sectionid", l: "Sekcija", g: "smartlis", o: "smartlis", t: "dict", web: 1, e: "business" },
+  { k: "sectiono", l: "Sekciju grupa", g: "smartlis", o: "smartlis", t: "dict", web: 1, e: "business" },
+  { k: "sampleid", l: "Materiāls", g: "smartlis", o: "smartlis", t: "dict", web: 1, e: "business" },
+  { k: "fin_price2", l: "Pašreizējā cena, EUR", g: "price", o: "smartlis", t: "num", price: 1, e: "business" },
+  { k: "fin_price1", l: "NVD cena, EUR", g: "price", o: "smartlis", t: "num", price: 1, e: "business" },
+  { k: "fin_cost1", l: "Cena ar atlaidi, EUR", g: "price", o: "smartlis", t: "num", price: 1, e: "business" },
+  { k: "fin_cost2", l: "Vecā cena (vecie līgumi), EUR", g: "price", o: "smartlis", t: "num", price: 1, e: "business" },
   { k: "template", l: "Šablona ID", g: "smartlis", o: "smartlis", t: "text", web: 1, e: "none" },
   { k: "template_code", l: "Sastāvdaļas (kodi)", g: "smartlis", o: "smartlis", t: "list", web: 1, e: "none" },
   { k: "template_name", l: "Sastāvdaļas (nosaukumi)", g: "smartlis", o: "smartlis", t: "list", web: 1, e: "none" },
-  { k: "publish", l: "Publicēšana mājaslapā", g: "catalog", o: "catalog", t: "publish", web: 0, e: "editor" },
-  { k: "Veterinary", l: "Veterinary", g: "catalog", o: "catalog", t: "text", web: 1, e: "editor" },
-  { k: "animalSpecies", l: "Dzīvnieka suga (VET)", g: "catalog", o: "catalog", t: "text", web: 1, e: "editor" },
-  { k: "Referents", l: "References intervāli", g: "catalog", o: "catalog", t: "long", web: 1, e: "editor" },
-  { k: "codename", l: "SEO URL", g: "web", o: "catalog", t: "text", web: 1, wreq: 1, e: "editor" },
-  { k: "title", l: "Nosaukums mājaslapā", g: "web", o: "catalog", t: "text", web: 1, wreq: 1, e: "editor" },
-  { k: "longDescription", l: "Īsais apraksts", g: "web", o: "catalog", t: "long", web: 1, wreq: 1, e: "editor" },
-  { k: "description1Title", l: "Izvēlne 1 — virsraksts", g: "web", o: "catalog", t: "text", web: 1, e: "editor" },
-  { k: "description1", l: "Izvēlne 1 — teksts", g: "web", o: "catalog", t: "long", web: 1, e: "editor" },
-  { k: "description2Title", l: "Izvēlne 2 — virsraksts", g: "web", o: "catalog", t: "text", web: 1, e: "editor" },
-  { k: "description2", l: "Izvēlne 2 — teksts", g: "web", o: "catalog", t: "long", web: 1, e: "editor" },
-  { k: "description3Title", l: "Izvēlne 3 — virsraksts", g: "web", o: "catalog", t: "text", web: 1, e: "editor" },
-  { k: "description3", l: "Izvēlne 3 — teksts", g: "web", o: "catalog", t: "long", web: 1, e: "editor" },
-  { k: "description4Title", l: "Izvēlne 4 — virsraksts", g: "web", o: "catalog", t: "text", web: 1, e: "editor" },
-  { k: "description4", l: "Izvēlne 4 — garais teksts", g: "web", o: "catalog", t: "long", web: 1, e: "editor" },
-  { k: "relatedLisInfo", l: "Saistītās analīzes (4 kodi)", g: "web", o: "catalog", t: "text", web: 1, e: "editor" },
-  { k: "metaTitle", l: "Meta virsraksts", g: "web", o: "catalog", t: "text", web: 1, wreq: 1, jk: "analizes-meta-virsraksts", e: "editor" },
-  { k: "metaDescription", l: "Meta apraksts", g: "web", o: "catalog", t: "long", web: 1, wreq: 1, jk: "analizes-meta-apraksts", e: "editor" },
-  { k: "longDescription_ru", l: "RU · Īsais apraksts", g: "web_ru", o: "catalog", t: "long", web: 1, tr: "longDescription", e: "editor" },
-  { k: "description1Title_ru", l: "RU · Izvēlne 1 — virsraksts", g: "web_ru", o: "catalog", t: "text", web: 1, tr: "description1Title", e: "editor" },
-  { k: "description1_ru", l: "RU · Izvēlne 1 — teksts", g: "web_ru", o: "catalog", t: "long", web: 1, tr: "description1", e: "editor" },
-  { k: "description2Title_ru", l: "RU · Izvēlne 2 — virsraksts", g: "web_ru", o: "catalog", t: "text", web: 1, tr: "description2Title", e: "editor" },
-  { k: "description2_ru", l: "RU · Izvēlne 2 — teksts", g: "web_ru", o: "catalog", t: "long", web: 1, tr: "description2", e: "editor" },
-  { k: "description3Title_ru", l: "RU · Izvēlne 3 — virsraksts", g: "web_ru", o: "catalog", t: "text", web: 1, tr: "description3Title", e: "editor" },
-  { k: "description3_ru", l: "RU · Izvēlne 3 — teksts", g: "web_ru", o: "catalog", t: "long", web: 1, tr: "description3", e: "editor" },
-  { k: "description4Title_ru", l: "RU · Izvēlne 4 — virsraksts", g: "web_ru", o: "catalog", t: "text", web: 1, tr: "description4Title", e: "editor" },
-  { k: "description4_ru", l: "RU · Izvēlne 4 — garais teksts", g: "web_ru", o: "catalog", t: "long", web: 1, tr: "description4", e: "editor" },
-  { k: "longDescription_en", l: "EN · Īsais apraksts", g: "web_en", o: "catalog", t: "long", web: 1, tr: "longDescription", e: "editor" },
-  { k: "description1Title_en", l: "EN · Izvēlne 1 — virsraksts", g: "web_en", o: "catalog", t: "text", web: 1, tr: "description1Title", e: "editor" },
-  { k: "description1_en", l: "EN · Izvēlne 1 — teksts", g: "web_en", o: "catalog", t: "long", web: 1, tr: "description1", e: "editor" },
-  { k: "description2Title_en", l: "EN · Izvēlne 2 — virsraksts", g: "web_en", o: "catalog", t: "text", web: 1, tr: "description2Title", e: "editor" },
-  { k: "description2_en", l: "EN · Izvēlne 2 — teksts", g: "web_en", o: "catalog", t: "long", web: 1, tr: "description2", e: "editor" },
-  { k: "description3Title_en", l: "EN · Izvēlne 3 — virsraksts", g: "web_en", o: "catalog", t: "text", web: 1, tr: "description3Title", e: "editor" },
-  { k: "description3_en", l: "EN · Izvēlne 3 — teksts", g: "web_en", o: "catalog", t: "long", web: 1, tr: "description3", e: "editor" },
-  { k: "description4Title_en", l: "EN · Izvēlne 4 — virsraksts", g: "web_en", o: "catalog", t: "text", web: 1, tr: "description4Title", e: "editor" },
-  { k: "description4_en", l: "EN · Izvēlne 4 — garais teksts", g: "web_en", o: "catalog", t: "long", web: 1, tr: "description4", e: "editor" },
-  { k: "media1", l: "Attēls 1 (URL)", g: "media", o: "catalog", t: "url", web: 1, e: "editor" },
-  { k: "media2", l: "Attēls 2 (URL)", g: "media", o: "catalog", t: "url", web: 1, e: "editor" },
-  { k: "media3", l: "Attēls 3 (URL)", g: "media", o: "catalog", t: "url", web: 1, e: "editor" },
+  { k: "publish", l: "Publicēšana mājaslapā", g: "catalog", o: "catalog", t: "publish", web: 0, e: "business" },
+  { k: "Veterinary", l: "Veterinary", g: "catalog", o: "catalog", t: "text", web: 1, e: "business" },
+  { k: "animalSpecies", l: "Dzīvnieka suga (VET)", g: "catalog", o: "catalog", t: "text", web: 1, e: "marketing" },
+  { k: "Referents", l: "References intervāli", g: "catalog", o: "catalog", t: "long", web: 1, e: "marketing" },
+  { k: "codename", l: "SEO URL", g: "web", o: "catalog", t: "text", web: 1, wreq: 1, e: "marketing" },
+  { k: "title", l: "Nosaukums mājaslapā", g: "web", o: "catalog", t: "text", web: 1, wreq: 1, e: "marketing" },
+  { k: "longDescription", l: "Īsais apraksts", g: "web", o: "catalog", t: "long", web: 1, wreq: 1, e: "marketing" },
+  { k: "description1Title", l: "Izvēlne 1 — virsraksts", g: "web", o: "catalog", t: "text", web: 1, e: "marketing" },
+  { k: "description1", l: "Izvēlne 1 — teksts", g: "web", o: "catalog", t: "long", web: 1, e: "marketing" },
+  { k: "description2Title", l: "Izvēlne 2 — virsraksts", g: "web", o: "catalog", t: "text", web: 1, e: "marketing" },
+  { k: "description2", l: "Izvēlne 2 — teksts", g: "web", o: "catalog", t: "long", web: 1, e: "marketing" },
+  { k: "description3Title", l: "Izvēlne 3 — virsraksts", g: "web", o: "catalog", t: "text", web: 1, e: "marketing" },
+  { k: "description3", l: "Izvēlne 3 — teksts", g: "web", o: "catalog", t: "long", web: 1, e: "marketing" },
+  { k: "description4Title", l: "Izvēlne 4 — virsraksts", g: "web", o: "catalog", t: "text", web: 1, e: "marketing" },
+  { k: "description4", l: "Izvēlne 4 — garais teksts", g: "web", o: "catalog", t: "long", web: 1, e: "marketing" },
+  { k: "relatedLisInfo", l: "Saistītās analīzes (4 kodi)", g: "web", o: "catalog", t: "text", web: 1, e: "marketing" },
+  { k: "metaTitle", l: "Meta virsraksts", g: "web", o: "catalog", t: "text", web: 1, wreq: 1, jk: "analizes-meta-virsraksts", e: "marketing" },
+  { k: "metaDescription", l: "Meta apraksts", g: "web", o: "catalog", t: "long", web: 1, wreq: 1, jk: "analizes-meta-apraksts", e: "marketing" },
+  { k: "longDescription_ru", l: "RU · Īsais apraksts", g: "web_ru", o: "catalog", t: "long", web: 1, tr: "longDescription", e: "marketing" },
+  { k: "description1Title_ru", l: "RU · Izvēlne 1 — virsraksts", g: "web_ru", o: "catalog", t: "text", web: 1, tr: "description1Title", e: "marketing" },
+  { k: "description1_ru", l: "RU · Izvēlne 1 — teksts", g: "web_ru", o: "catalog", t: "long", web: 1, tr: "description1", e: "marketing" },
+  { k: "description2Title_ru", l: "RU · Izvēlne 2 — virsraksts", g: "web_ru", o: "catalog", t: "text", web: 1, tr: "description2Title", e: "marketing" },
+  { k: "description2_ru", l: "RU · Izvēlne 2 — teksts", g: "web_ru", o: "catalog", t: "long", web: 1, tr: "description2", e: "marketing" },
+  { k: "description3Title_ru", l: "RU · Izvēlne 3 — virsraksts", g: "web_ru", o: "catalog", t: "text", web: 1, tr: "description3Title", e: "marketing" },
+  { k: "description3_ru", l: "RU · Izvēlne 3 — teksts", g: "web_ru", o: "catalog", t: "long", web: 1, tr: "description3", e: "marketing" },
+  { k: "description4Title_ru", l: "RU · Izvēlne 4 — virsraksts", g: "web_ru", o: "catalog", t: "text", web: 1, tr: "description4Title", e: "marketing" },
+  { k: "description4_ru", l: "RU · Izvēlne 4 — garais teksts", g: "web_ru", o: "catalog", t: "long", web: 1, tr: "description4", e: "marketing" },
+  { k: "longDescription_en", l: "EN · Īsais apraksts", g: "web_en", o: "catalog", t: "long", web: 1, tr: "longDescription", e: "marketing" },
+  { k: "description1Title_en", l: "EN · Izvēlne 1 — virsraksts", g: "web_en", o: "catalog", t: "text", web: 1, tr: "description1Title", e: "marketing" },
+  { k: "description1_en", l: "EN · Izvēlne 1 — teksts", g: "web_en", o: "catalog", t: "long", web: 1, tr: "description1", e: "marketing" },
+  { k: "description2Title_en", l: "EN · Izvēlne 2 — virsraksts", g: "web_en", o: "catalog", t: "text", web: 1, tr: "description2Title", e: "marketing" },
+  { k: "description2_en", l: "EN · Izvēlne 2 — teksts", g: "web_en", o: "catalog", t: "long", web: 1, tr: "description2", e: "marketing" },
+  { k: "description3Title_en", l: "EN · Izvēlne 3 — virsraksts", g: "web_en", o: "catalog", t: "text", web: 1, tr: "description3Title", e: "marketing" },
+  { k: "description3_en", l: "EN · Izvēlne 3 — teksts", g: "web_en", o: "catalog", t: "long", web: 1, tr: "description3", e: "marketing" },
+  { k: "description4Title_en", l: "EN · Izvēlne 4 — virsraksts", g: "web_en", o: "catalog", t: "text", web: 1, tr: "description4Title", e: "marketing" },
+  { k: "description4_en", l: "EN · Izvēlne 4 — garais teksts", g: "web_en", o: "catalog", t: "long", web: 1, tr: "description4", e: "marketing" },
+  { k: "media1", l: "Attēls 1 (URL)", g: "media", o: "catalog", t: "url", web: 1, e: "marketing" },
+  { k: "media2", l: "Attēls 2 (URL)", g: "media", o: "catalog", t: "url", web: 1, e: "marketing" },
+  { k: "media3", l: "Attēls 3 (URL)", g: "media", o: "catalog", t: "url", web: 1, e: "marketing" },
 ];
 
 const BOOL_FIELDS = ["active", "order", "bill", "report", "catalog"];
 const NUM_FIELDS = ["testtype", "sectionid", "sectiono", "sampleid", "timesolve", "fin_price1", "fin_price2", "fin_cost1", "fin_cost2"];
 const PRICES_REGULAR = ["fin_price2"];
 const PRICES_AKC = ["fin_price2", "fin_cost1"];
-const DEFAULT_SETTINGS = { includeAkc: false, massLimit: 200, clearShare: 0.05, clearMin: 30 };
+// priceBulkMax: most tests one price change may touch (a whole-catalog price update in one click is impossible)
+// priceJump: a price change bigger than this share is highlighted in the confirmation
+const DEFAULT_SETTINGS = { includeAkc: false, massLimit: 200, clearShare: 0.05, clearMin: 30, priceBulkMax: 50, priceJump: 0.3 };
 const CHUNKS = 32;
 const HIST_CAP = 20;
 
@@ -86,7 +103,34 @@ function editLevel(f) {
   if (f.e) return f.e;
   const d = DEFAULT_FIELDS.find(x => x.k === f.k);
   if (d && d.e) return d.e;
-  return f.o === "smartlis" ? "none" : "editor";
+  return f.o === "smartlis" ? "none" : "admin";
+}
+// Field edit check for a set of roles (prototype: in the browser; production: on the server, on save and on send)
+function canEditWith(f, roles) {
+  if (!f || f.k === "code") return false;
+  const lvl = editLevel(f);
+  if (lvl === "none") return false;
+  if (roles.includes("admin")) return true;
+  return roles.includes(lvl);
+}
+function canDoWith(action, roles) {
+  if (roles.includes("admin")) return true;
+  const a = ACTIONS[action];
+  return !!a && a.roles.some(r => roles.includes(r));
+}
+// Price changes in a set of edits: [{ f, o, n, jump }], jump = relative change (null if no old price)
+function priceChanges(t, edits, fields, settings) {
+  const fm = fieldMap(fields); const lim = (settings && settings.priceJump) || DEFAULT_SETTINGS.priceJump;
+  const out = [];
+  for (const [k, n] of Object.entries(edits)) {
+    const f = fm[k]; if (!f || !f.price) continue;
+    const o = cv(t, k);
+    if (same(o, n)) continue;
+    const on = Number(norm(o)), nn = Number(norm(n));
+    const rel = isEmpty(o) || isEmpty(n) || !on ? null : (nn - on) / on;
+    out.push({ f: k, o: isEmpty(o) ? null : o, n, rel, jump: rel === null || Math.abs(rel) >= lim });
+  }
+  return out;
 }
 // Site content groups: LV texts, translations, media
 const isWebGroup = (f) => !!f && (f.g === "web" || f.g === "web_ru" || f.g === "web_en" || f.g === "media");
@@ -96,8 +140,14 @@ function mergeFields(stored, defaults) {
   if (!Array.isArray(stored) || !stored.length) return defaults.map(f => ({ ...f }));
   const out = stored.map(f => ({ ...f }));
   const have = new Set(out.map(f => f.k));
+  const legacy = out.some(f => f.e === "editor");   // registry saved before roles by AD groups
   defaults.forEach((d, i) => {
-    if (have.has(d.k)) { const f = out.find(x => x.k === d.k); for (const p of ["g", "tr", "t"]) if (f[p] === undefined && d[p] !== undefined) f[p] = d[p]; return; }
+    if (have.has(d.k)) {
+      const f = out.find(x => x.k === d.k);
+      for (const p of ["g", "tr", "t"]) if (f[p] === undefined && d[p] !== undefined) f[p] = d[p];
+      if (legacy || (f.e !== undefined && !(f.e in EDIT_LABEL))) f.e = d.e;   // levels before 25.11 (editor/admin) → role defaults
+      return;
+    }
     let at = out.length;
     for (let j = i - 1; j >= 0; j--) { const idx = out.findIndex(x => x.k === defaults[j].k); if (idx >= 0) { at = idx + 1; break; } }
     out.splice(at, 0, { ...d }); have.add(d.k);
@@ -591,4 +641,4 @@ function buildFromExcel(sheets, fields) {
   return res;
 }
 
-if (typeof module !== "undefined") module.exports = { isSl, editLevel, cv, hasOwn, EDIT_LABEL, DEFAULT_FIELDS, DEFAULT_SETTINGS, CHECKS, norm, same, isEmpty, parseCell, parseCsv, decodeUtf8, planImport, applyPatch, planExport, buildWebJson, pendingFields, conflictsOf, chunkOf, valueOf, dictName, dictDuplicates, seoDuplicates, missingWebContent, buildFromExcel, fieldMap, HIST_CAP, CHUNKS, mergeFields, isWebGroup, LANGS, missingTranslations, CODE_FIELD, colText, filterKind, choiceOptions, parseNumFilter, matchCol, compareBy };
+if (typeof module !== "undefined") module.exports = { ROLES, ACTIONS, canEditWith, canDoWith, priceChanges, isSl, editLevel, cv, hasOwn, EDIT_LABEL, DEFAULT_FIELDS, DEFAULT_SETTINGS, CHECKS, norm, same, isEmpty, parseCell, parseCsv, decodeUtf8, planImport, applyPatch, planExport, buildWebJson, pendingFields, conflictsOf, chunkOf, valueOf, dictName, dictDuplicates, seoDuplicates, missingWebContent, buildFromExcel, fieldMap, HIST_CAP, CHUNKS, mergeFields, isWebGroup, LANGS, missingTranslations, CODE_FIELD, colText, filterKind, choiceOptions, parseNumFilter, matchCol, compareBy };
