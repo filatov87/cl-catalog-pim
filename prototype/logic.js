@@ -470,10 +470,23 @@ function diffWeb(prev, next) {
   const sort = (a) => a.sort((x, y) => x.localeCompare(y));
   return { added: sort(added), changed: sort(changed), removed: sort(removed), total: added.length + changed.length + removed.length };
 }
-// Storage documents have a size limit: a version is kept in parts
-function splitText(str, size) {
-  const n = size || 400000; const out = [];
-  for (let i = 0; i < str.length; i += n) out.push(str.slice(i, i + n));
+// Storage documents are limited to 256 KiB as serialized JSON (quotes and backslashes get escaped,
+// Latvian and Russian letters take 2 bytes): a version is kept in parts measured in serialized bytes.
+const serializedBytes = (str) => new TextEncoder().encode(JSON.stringify({ text: str })).length;
+function splitText(str, maxBytes) {
+  const limit = maxBytes || 180000;
+  const out = [];
+  let i = 0, step = Math.max(1000, Math.floor(limit / 3));
+  while (i < str.length) {
+    let end = Math.min(str.length, i + step);
+    // grow while it fits, then shrink until it fits
+    while (end < str.length && serializedBytes(str.slice(i, Math.min(str.length, end + step))) <= limit) end = Math.min(str.length, end + step);
+    while (serializedBytes(str.slice(i, end)) > limit) end = i + Math.floor((end - i) * 0.8);
+    // never cut a surrogate pair in two
+    const c = str.charCodeAt(end - 1);
+    if (end < str.length && c >= 0xd800 && c <= 0xdbff) end -= 1;
+    out.push(str.slice(i, end)); i = end;
+  }
   return out.length ? out : [""];
 }
 
@@ -677,4 +690,4 @@ function buildFromExcel(sheets, fields) {
   return res;
 }
 
-if (typeof module !== "undefined") module.exports = { strHash, webHashes, diffWeb, splitText, ROLES, ACTIONS, canEditWith, canDoWith, priceChanges, isSl, editLevel, cv, hasOwn, EDIT_LABEL, DEFAULT_FIELDS, DEFAULT_SETTINGS, CHECKS, norm, same, isEmpty, parseCell, parseCsv, decodeUtf8, planImport, applyPatch, planExport, buildWebJson, pendingFields, conflictsOf, chunkOf, valueOf, dictName, dictDuplicates, seoDuplicates, missingWebContent, buildFromExcel, fieldMap, HIST_CAP, CHUNKS, mergeFields, isWebGroup, LANGS, missingTranslations, CODE_FIELD, colText, filterKind, choiceOptions, parseNumFilter, matchCol, compareBy };
+if (typeof module !== "undefined") module.exports = { serializedBytes, strHash, webHashes, diffWeb, splitText, ROLES, ACTIONS, canEditWith, canDoWith, priceChanges, isSl, editLevel, cv, hasOwn, EDIT_LABEL, DEFAULT_FIELDS, DEFAULT_SETTINGS, CHECKS, norm, same, isEmpty, parseCell, parseCsv, decodeUtf8, planImport, applyPatch, planExport, buildWebJson, pendingFields, conflictsOf, chunkOf, valueOf, dictName, dictDuplicates, seoDuplicates, missingWebContent, buildFromExcel, fieldMap, HIST_CAP, CHUNKS, mergeFields, isWebGroup, LANGS, missingTranslations, CODE_FIELD, colText, filterKind, choiceOptions, parseNumFilter, matchCol, compareBy };

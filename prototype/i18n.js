@@ -404,7 +404,8 @@ const I18N_LV = {
  "новых": "jauni",
  "от": "no",
  "публикация": "publicēšana",
- "снимаются": "tiek noņemti"
+ "снимаются": "tiek noņemti",
+ "Не удалось сохранить: часть данных превысила лимит хранилища (256 КБ на документ). Сообщите администратору.": "Neizdevās saglabāt: daļa datu pārsniedza krātuves limitu (256 KB vienam dokumentam). Ziņojiet administratoram."
 };
 const LANG_KEY = "clcat.lang.v1";
 let UI_LANG = "lv";

@@ -301,9 +301,17 @@ test("version diff: new, changed and removed tests; identical catalog gives no c
   assert.deepEqual([d.added, d.changed, d.removed], [[extra], [codes[0]], [codes[1]]]);
 });
 
-test("a version is stored in parts and joins back exactly", () => {
-  const text = JSON.stringify({ tests: Array.from({ length: 3000 }, (_, i) => ({ code: "T" + i, longDescription_ru: "Описание ā ē ņ " + i })) });
+test("a version is stored in parts under the 256 KiB document limit and joins back exactly", () => {
+  const text = JSON.stringify({ tests: Array.from({ length: 3000 }, (_, i) => ({ code: "T" + i, longDescription_ru: "Описание \"ā ē ņ\" " + i })) });
   const parts = L.splitText(text, 50000);
-  assert.ok(parts.length > 1 && parts.every(p => p.length <= 50000));
+  assert.ok(parts.length > 1 && parts.every(p => L.serializedBytes(p) <= 50000), "each part fits the limit as serialized JSON");
+  assert.equal(parts.join(""), text);
+});
+
+test("the real site JSON (2 MB with LV/RU/EN texts) splits into parts under 256 KiB", () => {
+  const big = { tests: Array.from({ length: 750 }, (_, i) => ({ code: "T" + i, longDescription: "Apraksts ā ē ņ \"x\" ".repeat(60), longDescription_ru: "Описание анализа ".repeat(60), longDescription_en: "Description ".repeat(60) })) };
+  const text = JSON.stringify(big);
+  const parts = L.splitText(text);
+  assert.ok(parts.every(p => L.serializedBytes(p) <= 256 * 1024));
   assert.equal(parts.join(""), text);
 });

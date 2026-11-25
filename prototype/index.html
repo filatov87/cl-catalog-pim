@@ -460,6 +460,11 @@ async function withRetry(fn) {
 }
 
 // patches: {code: {sl?, val?, base?, meta?, code?}}; histAdd: {code: [entries]}
+// History keeps the start of long texts only: a storage document holds at most 256 KiB
+const HIST_TEXT = 300;
+const clipText = (v) => (typeof v === "string" && v.length > HIST_TEXT ? v.slice(0, HIST_TEXT) + "…" : v);
+const clipHist = (h) => ({ ...h, o: clipText(h.o), n: clipText(h.n) });
+const tooBig = (e) => e && /limit|256|too large|size/i.test(String(e.message || ""));
 async function commit(patches, histAdd, event) {
   const codes = Object.keys(patches);
   if (S.mode === "local") {
@@ -474,7 +479,7 @@ async function commit(patches, histAdd, event) {
   const histByChunk = {};
   for (const code of Object.keys(histAdd || {})) {
     const c = chunkOf(code);
-    (histByChunk[c] = histByChunk[c] || {})[code] = (S.hist[code] || []).concat(histAdd[code]).slice(-HIST_CAP);
+    (histByChunk[c] = histByChunk[c] || {})[code] = (S.hist[code] || []).concat(histAdd[code].map(clipHist)).slice(-HIST_CAP);
   }
   const chunkIds = [...new Set([...Object.keys(byChunk), ...Object.keys(histByChunk)])];
   try {
@@ -488,7 +493,7 @@ async function commit(patches, histAdd, event) {
     setBusy(null); return true;
   } catch (e) {
     setBusy(null);
-    toast(e && e.code === "invalid_argument" ? tr("Нет прав на изменение данных. Попросите владельца дать вам роль Contributor.") : tr("Не удалось сохранить: ") + (e && (e.message || e.code)), true);
+    toast(tooBig(e) ? tr("Не удалось сохранить: часть данных превысила лимит хранилища (256 КБ на документ). Сообщите администратору.") : e && e.code === "invalid_argument" ? tr("Нет прав на изменение данных. Попросите владельца дать вам роль Contributor.") : tr("Не удалось сохранить: ") + (e && (e.message || e.code)), true);
     return false;
   }
 }
