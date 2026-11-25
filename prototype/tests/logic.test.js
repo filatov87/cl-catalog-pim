@@ -285,3 +285,25 @@ test("web JSON for partners never carries cost or old contract prices, even if a
   for (const k of ["fin_cost2", "fin_price1"]) assert.ok(!all.includes(`"${k}"`), `${k} must not leave the app`);
   assert.ok(web.tests.length > 0 && web.tests.every(t => "fin_price2" in t));
 });
+
+/* ---- Published versions (25.11.2026): the site gets only what was published ---- */
+test("version diff: new, changed and removed tests; identical catalog gives no changes", () => {
+  const tests = new Map(sample.tests.map(t => [t.code, JSON.parse(JSON.stringify(t))]));
+  const codes = [...tests.keys()].slice(0, 3);
+  codes.forEach(c => { tests.get(c).val.publish = "TRUE"; });
+  const v1 = L.webHashes(L.buildWebJson(tests, F, sample.dicts, S));
+  assert.equal(L.diffWeb(v1, L.webHashes(L.buildWebJson(tests, F, sample.dicts, S))).total, 0);
+  tests.get(codes[0]).val.title = "Jauns nosaukums";
+  tests.get(codes[1]).val.publish = "FALSE";
+  const extra = [...tests.values()].find(t => !codes.includes(t.code) && t.val.publish !== "TRUE" && !(t.meta && t.meta.missing)).code;
+  tests.get(extra).val.publish = "TRUE";
+  const d = L.diffWeb(v1, L.webHashes(L.buildWebJson(tests, F, sample.dicts, S)));
+  assert.deepEqual([d.added, d.changed, d.removed], [[extra], [codes[0]], [codes[1]]]);
+});
+
+test("a version is stored in parts and joins back exactly", () => {
+  const text = JSON.stringify({ tests: Array.from({ length: 3000 }, (_, i) => ({ code: "T" + i, longDescription_ru: "Описание ā ē ņ " + i })) });
+  const parts = L.splitText(text, 50000);
+  assert.ok(parts.length > 1 && parts.every(p => p.length <= 50000));
+  assert.equal(parts.join(""), text);
+});

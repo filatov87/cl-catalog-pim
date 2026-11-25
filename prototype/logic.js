@@ -448,6 +448,35 @@ function buildWebJson(tests, fields, dicts, settings) {
   return res;
 }
 
+/* ---------- Published versions of the site JSON (decision 25.11: the site gets only published versions) ---------- */
+// FNV-1a, 32 bit: enough to see whether one test's record changed between versions
+function strHash(str) {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; }
+  return h.toString(16).padStart(8, "0");
+}
+function webHashes(json) {
+  const out = {};
+  for (const r of json.tests || []) out[r.code] = strHash(JSON.stringify(r));
+  for (const r of json.promotions || []) out["AKC:" + r.code] = strHash(JSON.stringify(r));
+  return out;
+}
+// What a new publication changes compared with the published one: codes added, changed, removed
+function diffWeb(prev, next) {
+  const p = prev || {}, n = next || {};
+  const added = [], changed = [], removed = [];
+  for (const k of Object.keys(n)) { if (!(k in p)) added.push(k); else if (p[k] !== n[k]) changed.push(k); }
+  for (const k of Object.keys(p)) if (!(k in n)) removed.push(k);
+  const sort = (a) => a.sort((x, y) => x.localeCompare(y));
+  return { added: sort(added), changed: sort(changed), removed: sort(removed), total: added.length + changed.length + removed.length };
+}
+// Storage documents have a size limit: a version is kept in parts
+function splitText(str, size) {
+  const n = size || 400000; const out = [];
+  for (let i = 0; i < str.length; i += n) out.push(str.slice(i, i + n));
+  return out.length ? out : [""];
+}
+
 /* ---------- Quality checks ---------- */
 function missingWebContent(t, fields) {
   return fields.filter(f => f.wreq && isEmpty(t.val ? t.val[f.k] : null)).map(f => f.k);
@@ -648,4 +677,4 @@ function buildFromExcel(sheets, fields) {
   return res;
 }
 
-if (typeof module !== "undefined") module.exports = { ROLES, ACTIONS, canEditWith, canDoWith, priceChanges, isSl, editLevel, cv, hasOwn, EDIT_LABEL, DEFAULT_FIELDS, DEFAULT_SETTINGS, CHECKS, norm, same, isEmpty, parseCell, parseCsv, decodeUtf8, planImport, applyPatch, planExport, buildWebJson, pendingFields, conflictsOf, chunkOf, valueOf, dictName, dictDuplicates, seoDuplicates, missingWebContent, buildFromExcel, fieldMap, HIST_CAP, CHUNKS, mergeFields, isWebGroup, LANGS, missingTranslations, CODE_FIELD, colText, filterKind, choiceOptions, parseNumFilter, matchCol, compareBy };
+if (typeof module !== "undefined") module.exports = { strHash, webHashes, diffWeb, splitText, ROLES, ACTIONS, canEditWith, canDoWith, priceChanges, isSl, editLevel, cv, hasOwn, EDIT_LABEL, DEFAULT_FIELDS, DEFAULT_SETTINGS, CHECKS, norm, same, isEmpty, parseCell, parseCsv, decodeUtf8, planImport, applyPatch, planExport, buildWebJson, pendingFields, conflictsOf, chunkOf, valueOf, dictName, dictDuplicates, seoDuplicates, missingWebContent, buildFromExcel, fieldMap, HIST_CAP, CHUNKS, mergeFields, isWebGroup, LANGS, missingTranslations, CODE_FIELD, colText, filterKind, choiceOptions, parseNumFilter, matchCol, compareBy };

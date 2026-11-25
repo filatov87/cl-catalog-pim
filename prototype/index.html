@@ -254,6 +254,7 @@ const S = {
   sort: { k: null, dir: 1 },    // column sort: dir 1 = A→Z / small→large, -1 = reverse
   cf: {},                       // column filters: field key → filter text or choice value
   colpick: false,
+  web: { versions: [], current: null, local: {} },   // published versions of the site JSON; current = what the API serves
   role: "viewer",
   group: false,
   page: 0,
@@ -435,6 +436,14 @@ async function boot() {
   db.collection("hist").onSnapshot(snap => {
     for (const d of snap.docs) subs.hist[d.id] = d.data();
     if (S.mode === "live") { rebuildFromChunks(); scheduleRender(); }
+  }, () => {});
+  db.collection("webver").orderBy("n", "desc").limit(WEB_KEEP).onSnapshot(snap => {
+    S.web.versions = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    if (S.view === "site") scheduleRender();
+  }, () => {});
+  db.doc("webpub/current").onSnapshot(snap => {
+    S.web.current = snap.exists ? snap.data() : null;
+    if (S.view === "site") scheduleRender();
   }, () => {});
   db.collection("events").orderBy("t", "desc").limit(100).onSnapshot(snap => {
     S.events = snap.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -960,17 +969,108 @@ function viewSite() {
     <div class="tile"><b>${trDone("web_en")} / ${withLv.length}</b><span>${tr("с переводом EN")}</span></div>
     <div class="tile info"><b>${akc.length}</b><span>${tr("акций AKC")} ${S.settings.includeAkc ? tr("в выгрузке") : tr("(выключены)")}</span></div>
   </div>
+  ${publishCard(json)}
   <div class="card"><h3>${tr("Какие цены уходят на сайт")}</h3>
     <table><thead><tr><th>${tr("Публикация")}</th><th>Pašreizējā cena (fin_price2)</th><th>Cena ar atlaidi (fin_cost1)</th><th>NVD cena, Vecā cena</th></tr></thead>
     <tbody><tr><td>${tr("Jā — общий каталог")}</td><td>${tr("да")}</td><td>—</td><td>${tr("никогда")}</td></tr><tr><td>${tr("AKC — акция")}</td><td>${tr("да")}</td><td>${tr("да")}</td><td>${tr("никогда")}</td></tr></tbody></table>
     <label class="row"><input type="checkbox" id="set-akc"${S.settings.includeAkc ? " checked" : ""}${isAdminRole() && canWrite() ? "" : " disabled"}> ${tr("Включать акции AKC (массив promotions)")}</label></div>
   <div class="row">
+    <span class="lbl">${tr("Черновик — текущие данные каталога, ещё не опубликованные:")}</span>
     <button class="btn" data-act="copy-json" data-what="web"${canDoWith("web", myRoles()) ? "" : " disabled"}>${tr("Скопировать JSON")}</button>
-    ${downloads ? `<button class="btn primary" data-act="dl-json" data-what="web"${canDoWith("web", myRoles()) ? "" : " disabled"}>${tr("Скачать JSON")}</button>` : ""}
+    ${downloads ? `<button class="btn" data-act="dl-json" data-what="web"${canDoWith("web", myRoles()) ? "" : " disabled"}>${tr("Скачать черновик")}</button>` : ""}
     ${canDoWith("web", myRoles()) ? "" : `<span class="muted">${roleHint("web")}</span>`}
     ${incomplete.length ? `<button class="btn" data-act="go-check" data-c="web-missing">${tr("Показать тесты без текстов")}</button>` : ""}
   </div>
   <pre class="json">${esc(text.length > 30000 ? text.slice(0, 30000) + "\n…" : text)}</pre>`;
+}
+
+/* ================= published versions ================= */
+const WEB_KEEP = 10;   // versions kept for download and rollback
+const curVersion = () => (S.web.current ? S.web.versions.find(v => v.id === S.web.current.id) || null : null);
+async function publishWeb() {
+  if (!canDo("web")) { toast(roleHint("web"), true); return; }
+  const json = buildWebJson(S.tests, F(), S.dicts, S.settings);
+  const text = JSON.stringify(json);
+  const hashes = webHashes(json);
+  const cur = curVersion();
+  const d = diffWeb(cur ? cur.hashes : {}, hashes);
+  if (cur && !d.total) { toast(tr("Изменений с прошлой публикации нет.")); return; }
+  const incomplete = [...S.tests.values()].filter(t => norm(t.val.publish) === "TRUE" && missingWebContent(t, F()).length).length;
+  const list = (label, a) => a.length ? `<p style="margin:4px 0"><b>${esc(label)} ${a.length}</b>: <span class="mono">${esc(a.slice(0, 30).join(", "))}${a.length > 30 ? " …" : ""}</span></p>` : "";
+  const ok = await askEx({ title: tr("Опубликовать новую версию для сайта?"),
+    html: `${list(tr("Новые на сайте:"), d.added)}${list(tr("Изменённые:"), d.changed)}${list(tr("Снимаются с сайта:"), d.removed)}
+      ${incomplete ? `<div class="alert warn"><span>${tr("Опубликованных тестов без нужных текстов:")} <b>${incomplete}</b>. ${tr("Они попадут на сайт как есть.")}</span></div>` : ""}
+      <p class="muted" style="margin:0">${tr("Сайт получит эту версию через API при следующем запросе. Предыдущую версию можно будет вернуть.")}</p>`,
+    ok: tr("Опубликовать") });
+  if (!ok) return;
+  const n = Math.max(0, ...S.web.versions.map(v => v.n || 0)) + 1;
+  const id = "v" + String(n).padStart(4, "0");
+  const now = new Date().toISOString();
+  const parts = splitText(text);
+  const meta = { n, t: now, u: S.me, r: S.role, count: json.tests.length, akc: (json.promotions || []).length, parts: parts.length, bytes: text.length, hashes, diff: { added: d.added.length, changed: d.changed.length, removed: d.removed.length } };
+  const event = { t: now, u: S.me, r: S.role, kind: "publish", title: `${tr("Опубликована версия")} ${n}`, summary: { tests: json.tests.length, ...meta.diff } };
+  if (S.mode === "local") {
+    S.web.local[id] = text; S.web.versions = [{ id, ...meta }, ...S.web.versions].slice(0, WEB_KEEP); S.web.current = { id, n, t: now, u: S.me };
+    S.events.unshift({ id: "local" + Date.now(), ...event }); toast(`${tr("Опубликована версия")} ${n}.`); renderAll(); return;
+  }
+  if (S.mode !== "live") { toast(tr("Сначала начните работу с данными (баннер сверху)."), true); return; }
+  try {
+    for (let i = 0; i < parts.length; i++) { setBusy(tr("Публикую"), i, parts.length + 1); await withRetry(() => db.doc(`webverp/${id}_${i}`).set({ v: id, i, text: parts[i] })); }
+    await withRetry(() => db.doc("webver/" + id).set(meta));
+    await withRetry(() => db.doc("webpub/current").set({ id, n, t: now, u: S.me }));
+    await withRetry(() => db.collection("events").add(event));
+    setBusy(null); toast(`${tr("Опубликована версия")} ${n}.`);
+    // keep the last WEB_KEEP versions; the current one is never removed
+    const old = S.web.versions.filter(v => v.id !== id).slice(WEB_KEEP - 1);
+    for (const v of old) { if (v.id === id) continue; for (let i = 0; i < (v.parts || 1); i++) await db.doc(`webverp/${v.id}_${i}`).delete().catch(() => {}); await db.doc("webver/" + v.id).delete().catch(() => {}); }
+  } catch (e) { setBusy(null); toast(tr("Не удалось опубликовать: ") + (e && (e.message || e.code)), true); }
+}
+async function rollbackWeb(id) {
+  const v = S.web.versions.find(x => x.id === id); if (!v) return;
+  if (!canDo("web")) { toast(roleHint("web"), true); return; }
+  const ok = await askEx({ title: `${tr("Вернуть на сайт версию")} ${v.n}?`, html: `<p class="muted" style="margin:0">${tr("Сайт при следующем запросе получит эту версию. Текущие данные каталога не меняются.")}</p>`, ok: tr("Вернуть") });
+  if (!ok) return;
+  const now = new Date().toISOString();
+  const event = { t: now, u: S.me, r: S.role, kind: "publish", title: `${tr("Возвращена версия")} ${v.n}`, summary: { tests: v.count } };
+  if (S.mode === "local") { S.web.current = { id, n: v.n, t: now, u: S.me }; S.events.unshift({ id: "local" + Date.now(), ...event }); renderAll(); return; }
+  try { await withRetry(() => db.doc("webpub/current").set({ id, n: v.n, t: now, u: S.me })); await db.collection("events").add(event); toast(`${tr("Возвращена версия")} ${v.n}.`); }
+  catch (e) { toast(tr("Не удалось опубликовать: ") + (e && (e.message || e.code)), true); }
+}
+async function versionText(id) {
+  if (S.web.local[id]) return S.web.local[id];
+  const v = S.web.versions.find(x => x.id === id); if (!v || !db) return null;
+  const parts = [];
+  for (let i = 0; i < (v.parts || 1); i++) { const snap = await db.doc(`webverp/${id}_${i}`).get(); if (!snap.exists) return null; parts.push(snap.data().text); }
+  return parts.join("");
+}
+async function downloadVersion(id) {
+  const v = S.web.versions.find(x => x.id === id);
+  try {
+    const text = await versionText(id);
+    if (text === null) { toast(tr("Версия не найдена."), true); return; }
+    const pretty = JSON.stringify({ version: v ? v.n : null, publishedAt: v ? v.t : null, ...JSON.parse(text) }, null, 2);
+    if (downloads) await downloads.save({ filename: `web_catalog_v${v ? v.n : id}.json`, data: pretty });
+    else { await navigator.clipboard.writeText(pretty); toast(tr("JSON скопирован.")); }
+  } catch (e) { if (!(e && /cancel|declin|abort/i.test(String(e.code || e.message)))) toast(tr("Не удалось скачать файл."), true); }
+}
+function publishCard(json) {
+  const cur = curVersion();
+  const d = diffWeb(cur ? cur.hashes : {}, webHashes(json));
+  const can = canDo("web");
+  const head = cur
+    ? `${tr("Сейчас сайту отдаётся версия")} <b>${cur.n}</b> ${tr("от")} ${esc(fmtTime(cur.t))} (${esc(cur.u ? nameOf(cur.u) : "—")}) · ${cur.count} ${tr("тестов")}`
+    : tr("Ещё ничего не опубликовано: API пока не отдаёт сайту каталог.");
+  const pend = d.total
+    ? `<div class="alert ${cur ? "warn" : "info"}"><span><b>${tr("Не опубликовано:")}</b> ${tr("новых")} ${d.added.length}, ${tr("изменённых")} ${d.changed.length}, ${tr("снимаются")} ${d.removed.length}${d.total <= 12 ? ` — <span class="mono">${esc([...d.added, ...d.changed, ...d.removed].join(", "))}</span>` : ""}</span></div>`
+    : `<span class="muted">${tr("Все изменения опубликованы.")}</span>`;
+  resolveNames(S.web.versions.map(v => v.u));
+  const rows = S.web.versions.map(v => `<tr><td><b>${v.n}</b>${cur && v.id === cur.id ? ` <span class="chip good">${tr("на сайте")}</span>` : ""}</td><td class="muted">${esc(fmtTime(v.t))}</td><td>${esc(v.u ? nameOf(v.u) : "—")}${v.r && ROLES[v.r] ? `<br><span class="muted">${esc(tr(ROLES[v.r].l))}</span>` : ""}</td><td class="num">${v.count}</td><td class="muted">${v.diff ? `+${v.diff.added} · ~${v.diff.changed} · −${v.diff.removed}` : ""}</td>
+    <td><div class="row"><button class="btn sm" data-act="ver-dl" data-v="${esc(v.id)}">${tr("Скачать")}</button>${cur && v.id !== cur.id ? `<button class="btn sm" data-act="ver-back" data-v="${esc(v.id)}"${can ? "" : " disabled"}>${tr("Вернуть на сайт")}</button>` : ""}</div></td></tr>`).join("");
+  return `<div class="card"><h3>${tr("Публикация для сайта")}</h3>
+    <p style="margin:0">${head}</p>${pend}
+    <div class="row"><button class="btn primary" data-act="publish"${can && (d.total || !cur) ? "" : " disabled"}>${tr("Опубликовать версию")}</button>${can ? "" : `<span class="muted">${roleHint("web")}</span>`}</div>
+    ${rows ? `<div class="tablewrap"><table><thead><tr><th>${tr("Версия")}</th><th>${tr("Когда")}</th><th>${tr("Кто")}</th><th class="num">${tr("Тестов")}</th><th>${tr("Изменения")}</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>` : ""}
+    <span class="lbl">${tr("Сайт получает через API только опубликованную версию (решение 25.11). Правки в каталоге не видны на сайте, пока их не опубликуют. Хранятся последние")} ${WEB_KEEP} ${tr("версий.")}</span></div>`;
 }
 
 /* ================= view: checks ================= */
@@ -987,12 +1087,13 @@ function viewChecks() {
 /* ================= view: log ================= */
 function viewLog() {
   resolveNames(S.events.map(e => e.u));
-  const kindL = { init: ["acc", tr("загрузка")], import: ["info", tr("импорт")], export: ["good", tr("отправка")], bulk: ["warn", tr("массовая правка")], price: ["bad", tr("цены")], settings: ["plain", tr("настройки")] };
+  const kindL = { init: ["acc", tr("загрузка")], import: ["info", tr("импорт")], export: ["good", tr("отправка")], bulk: ["warn", tr("массовая правка")], price: ["bad", tr("цены")], publish: ["good", tr("публикация")], settings: ["plain", tr("настройки")] };
   const sum = (e) => {
     const s = e.summary || {};
     if (e.kind === "import") return `${tr("в файле")} ${s.rows}${tr(", новых")} ${s.new}${tr(", изменений")} ${s.changes}${tr(", конфликтов")} ${s.conflicts}${tr(", подтверждено отправок")} ${s.confirmed}${tr(", пропало")} ${s.missing}`;
     if (e.kind === "export") return `${tr("тестов")} ${s.tests}; ${Object.entries(s.fields || {}).map(([k, n]) => `${k}: ${n}`).join(", ")}`;
     if (e.kind === "bulk") return `${tr("тестов")} ${s.tests}`;
+    if (e.kind === "publish") return `${tr("тестов")} ${s.tests}${s.added !== undefined ? ` · +${s.added} ~${s.changed} −${s.removed}` : ""}`;
     if (e.kind === "price") return s.changes ? s.changes.map(c => `${c.f}: ${c.o ?? "—"} → ${c.n ?? "—"}`).join("; ") : `${tr("тестов")} ${s.tests}`;
     if (e.kind === "init") return `${tr("тестов")} ${s.tests} · ${s.source || ""}`;
     return "";
@@ -1097,7 +1198,7 @@ async function copyJson(what) {
 async function downloadJson(what) {
   if (!downloads) return;
   const d = new Date().toISOString().slice(0, 10);
-  try { await downloads.save({ filename: what === "web" ? `web_catalog_${d}.json` : `smartlis_delta_${d}.json`, data: payload(what) }); }
+  try { await downloads.save({ filename: what === "web" ? `web_catalog_draft_${d}.json` : `smartlis_delta_${d}.json`, data: payload(what) }); }
   catch (e) { if (!(e && /cancel|declin|abort/i.test(String(e.code || e.message)))) toast(tr("Не удалось скачать файл."), true); }
 }
 
@@ -1124,6 +1225,9 @@ document.addEventListener("click", async (e) => {
   if (a === "resolve") return resolveConflict(el.dataset.k, el.dataset.how);
   if (a === "page") { S.page += Number(el.dataset.d); renderAll(); $("#main").scrollTop = 0; return; }
   if (a === "reset-filters") { S.f = { q: "", status: "", check: "" }; S.cf = {}; S.page = 0; renderAll(); return; }
+  if (a === "publish") return publishWeb();
+  if (a === "ver-back") return rollbackWeb(el.dataset.v);
+  if (a === "ver-dl") return downloadVersion(el.dataset.v);
   if (a === "lang") { setLang(el.dataset.l); renderAll(); if (S.openCode) renderDrawer(); return; }
   if (a === "colpick") { S.colpick = !S.colpick; renderAll(); return; }
   if (a === "cols-default") { S.cols = DEFAULT_COLS.slice(); saveViewPrefs(); renderAll(); return; }
