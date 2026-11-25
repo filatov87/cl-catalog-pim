@@ -98,7 +98,8 @@ const PRICES_REGULAR = ["fin_price2"];
 const PRICES_AKC = ["fin_price2", "fin_cost1"];
 // priceBulkMax: most tests one price change may touch (a whole-catalog price update in one click is impossible)
 // priceJump: a price change bigger than this share is highlighted in the confirmation
-const DEFAULT_SETTINGS = { includeAkc: false, massLimit: 200, clearShare: 0.05, clearMin: 30, priceBulkMax: 50, priceJump: 0.3 };
+// smartlisBatch: SmartComm bulk_update accepts at most 100 tests per request (checked on PRE 25.11.2026)
+const DEFAULT_SETTINGS = { includeAkc: false, massLimit: 200, clearShare: 0.05, clearMin: 30, priceBulkMax: 50, priceJump: 0.3, smartlisBatch: 100 };
 const CHUNKS = 32;
 const HIST_CAP = 20;
 
@@ -470,6 +471,12 @@ function diffWeb(prev, next) {
   const sort = (a) => a.sort((x, y) => x.localeCompare(y));
   return { added: sort(added), changed: sort(changed), removed: sort(removed), total: added.length + changed.length + removed.length };
 }
+// Split a list into packages of at most n (bulk_update limit)
+function batches(list, n) {
+  const size = Math.max(1, Math.min(n || 100, 100)); const out = [];
+  for (let i = 0; i < list.length; i += size) out.push(list.slice(i, i + size));
+  return out;
+}
 // Storage documents are limited to 256 KiB as serialized JSON (quotes and backslashes get escaped,
 // Latvian and Russian letters take 2 bytes): a version is kept in parts measured in serialized bytes.
 const serializedBytes = (str) => new TextEncoder().encode(JSON.stringify({ text: str })).length;
@@ -690,4 +697,4 @@ function buildFromExcel(sheets, fields) {
   return res;
 }
 
-if (typeof module !== "undefined") module.exports = { serializedBytes, strHash, webHashes, diffWeb, splitText, ROLES, ACTIONS, canEditWith, canDoWith, priceChanges, isSl, editLevel, cv, hasOwn, EDIT_LABEL, DEFAULT_FIELDS, DEFAULT_SETTINGS, CHECKS, norm, same, isEmpty, parseCell, parseCsv, decodeUtf8, planImport, applyPatch, planExport, buildWebJson, pendingFields, conflictsOf, chunkOf, valueOf, dictName, dictDuplicates, seoDuplicates, missingWebContent, buildFromExcel, fieldMap, HIST_CAP, CHUNKS, mergeFields, isWebGroup, LANGS, missingTranslations, CODE_FIELD, colText, filterKind, choiceOptions, parseNumFilter, matchCol, compareBy };
+if (typeof module !== "undefined") module.exports = { batches, serializedBytes, strHash, webHashes, diffWeb, splitText, ROLES, ACTIONS, canEditWith, canDoWith, priceChanges, isSl, editLevel, cv, hasOwn, EDIT_LABEL, DEFAULT_FIELDS, DEFAULT_SETTINGS, CHECKS, norm, same, isEmpty, parseCell, parseCsv, decodeUtf8, planImport, applyPatch, planExport, buildWebJson, pendingFields, conflictsOf, chunkOf, valueOf, dictName, dictDuplicates, seoDuplicates, missingWebContent, buildFromExcel, fieldMap, HIST_CAP, CHUNKS, mergeFields, isWebGroup, LANGS, missingTranslations, CODE_FIELD, colText, filterKind, choiceOptions, parseNumFilter, matchCol, compareBy };

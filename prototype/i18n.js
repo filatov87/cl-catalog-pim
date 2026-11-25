@@ -405,7 +405,14 @@ const I18N_LV = {
  "от": "no",
  "публикация": "publicēšana",
  "снимаются": "tiek noņemti",
- "Не удалось сохранить: часть данных превысила лимит хранилища (256 КБ на документ). Сообщите администратору.": "Neizdevās saglabāt: daļa datu pārsniedza krātuves limitu (256 KB vienam dokumentam). Ziņojiet administratoram."
+ "Не удалось сохранить: часть данных превысила лимит хранилища (256 КБ на документ). Сообщите администратору.": "Neizdevās saglabāt: daļa datu pārsniedza krātuves limitu (256 KB vienam dokumentam). Ziņojiet administratoram.",
+ "отмечен как отправленный": "atzīmēta kā nosūtīta",
+ "отмечено": "atzīmēti",
+ "Скопировать": "Kopēt",
+ "Отметить как отправленный": "Atzīmēt kā nosūtītu",
+ "Пакеты для bulk_update": "Paketes bulk_update pieprasījumam",
+ "SmartLIS принимает не больше 100 тестов за один запрос. Отправляйте пакеты по очереди; после каждого проверьте ответ (rets) и отметьте пакет как отправленный.": "SmartLIS vienā pieprasījumā pieņem ne vairāk kā 100 testus. Sūtiet paketes pēc kārtas; pēc katras pārbaudiet atbildi (rets) un atzīmējiet paketi kā nosūtītu.",
+ "Коды": "Kodi"
 };
 const LANG_KEY = "clcat.lang.v1";
 let UI_LANG = "lv";

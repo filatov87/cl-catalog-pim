@@ -315,3 +315,11 @@ test("the real site JSON (2 MB with LV/RU/EN texts) splits into parts under 256 
   assert.ok(parts.every(p => L.serializedBytes(p) <= 256 * 1024));
   assert.equal(parts.join(""), text);
 });
+
+test("SmartLIS delta goes in packages of at most 100 tests (bulk_update limit on PRE)", () => {
+  const list = Array.from({ length: 670 }, (_, i) => ({ code: "T" + i }));
+  const b = L.batches(list, S.smartlisBatch);
+  assert.deepEqual(b.map(x => x.length), [100, 100, 100, 100, 100, 100, 70]);
+  assert.equal(L.batches(list, 500)[0].length, 100, "never more than 100, even if configured higher");
+  assert.deepEqual(b.flat(), list);
+});

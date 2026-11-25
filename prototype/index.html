@@ -810,6 +810,23 @@ async function bulkApply() {
 }
 
 /* ================= view: export ================= */
+// SmartComm bulk_update takes at most 100 tests per request: the delta is sent in packages
+function batchCard(p, blocked) {
+  const bs = batches(p.tests, S.settings.smartlisBatch || 100);
+  if (!bs.length) return "";
+  const can = canDo("export");
+  const rows = bs.map((b, i) => {
+    const sent = b.filter(r => { const t = S.tests.get(r.code); return t && t.meta && t.meta.lastExport; }).length;
+    return `<tr><td><b>${i + 1}</b> / ${bs.length}</td><td class="mono">${esc(b[0].code)} … ${esc(b[b.length - 1].code)}</td><td class="num">${b.length}</td>
+      <td>${sent === b.length ? `<span class="chip info">${tr("отмечен как отправленный")}</span>` : sent ? `<span class="chip warn">${tr("отмечено")} ${sent}/${b.length}</span>` : ""}</td>
+      <td><div class="row"><button class="btn sm" data-act="copy-json" data-what="export" data-b="${i}"${blocked ? " disabled" : ""}>${tr("Скопировать")}</button>
+      ${downloads ? `<button class="btn sm" data-act="dl-json" data-what="export" data-b="${i}"${blocked ? " disabled" : ""}>${tr("Скачать")}</button>` : ""}
+      <button class="btn sm primary" data-act="mark-sent" data-b="${i}"${!blocked && can ? "" : " disabled"}>${tr("Отметить как отправленный")}</button></div></td></tr>`;
+  }).join("");
+  return `<div class="card"><h3>${tr("Пакеты для bulk_update")}</h3>
+    <p class="muted" style="margin:0">${tr("SmartLIS принимает не больше 100 тестов за один запрос. Отправляйте пакеты по очереди; после каждого проверьте ответ (rets) и отметьте пакет как отправленный.")}</p>
+    <div class="tablewrap"><table><thead><tr><th>${tr("Пакет")}</th><th>${tr("Коды")}</th><th class="num">${tr("Тестов")}</th><th></th><th></th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
+}
 function viewExport() {
   const p = planExport(S.tests, F(), S.settings);
   S._export = p;
@@ -827,10 +844,8 @@ function viewExport() {
   ${p.nullRequired.length ? `<div class="alert bad"><b>${tr("Отправка заблокирована: пустое значение в обязательном поле")}</b><span>${p.nullRequired.length} ${tr("шт.:")} ${esc(p.nullRequired.slice(0, 15).join(", "))}${p.nullRequired.length > 15 ? "…" : ""}${tr(". Заполните их в карточках тестов.")}</span></div>` : ""}
   ${p.mass.length ? `<div class="alert warn"><b>${tr("Массовое изменение")}</b><span>${p.mass.map(m => `${esc(fm[m.f] ? fm[m.f].l : m.f)}: ${m.n} ${tr("тестов")}`).join("; ")} ${tr("— больше порога")} ${S.settings.massLimit}${tr(". Обычно это значит, что импорт был неполным. Если изменение осознанное, подтвердите.")}</span>
     <label class="row"><input type="checkbox" id="export-override"${S.exportOverride ? " checked" : ""}> ${tr("Я проверил(а), это осознанное массовое изменение")}</label></div>` : ""}
+  ${batchCard(p, blocked)}
   <div class="row">
-    <button class="btn" data-act="copy-json" data-what="export"${p.tests.length && !blocked ? "" : " disabled"}>${tr("Скопировать JSON")}</button>
-    ${downloads ? `<button class="btn" data-act="dl-json" data-what="export"${p.tests.length && !blocked ? "" : " disabled"}>${tr("Скачать JSON")}</button>` : ""}
-    <button class="btn primary" data-act="mark-sent"${p.tests.length && !blocked && canDo("export") ? "" : " disabled"}>${tr("Отметить как отправленное")}</button>
     ${canDo("export") ? "" : `<span class="muted">${roleHint("export")}</span>`}
     <span class="muted">${tr("Формат совпадает с телом запроса bulk_update. Справочные поля пока идут как ID SmartLIS (как в File processor); для SmartComm API понадобятся коды.")}</span>
   </div>
@@ -841,8 +856,12 @@ function viewExport() {
   </div>`;
 }
 
-async function markSent() {
-  const p = S._export; if (!p || !p.tests.length) return;
+async function markSent(b) {
+  const full = S._export; if (!full || !full.tests.length) return;
+  const tests = exportBatch(b); if (!tests.length) return;
+  const inBatch = new Set(tests.map(r => r.code));
+  const p = { ...full, tests, items: full.items.filter(i => inBatch.has(i.code)), byField: {} };
+  for (const i of p.items) p.byField[i.f] = (p.byField[i.f] || 0) + 1;
   const fm = FM();
   const priceItems = p.items.filter(i => fm[i.f] && fm[i.f].price);
   if (priceItems.length) {
@@ -1192,18 +1211,22 @@ async function confirmPrices(rows, nTests) {
 }
 
 /* ================= copy / download ================= */
-function payload(what) {
-  return what === "web" ? JSON.stringify(S._web, null, 2) : JSON.stringify({ tests: (S._export || { tests: [] }).tests }, null, 2);
+function exportBatch(b) {
+  const all = (S._export || { tests: [] }).tests;
+  return b === undefined || b === null || b === "" ? all : (batches(all, S.settings.smartlisBatch || 100)[Number(b)] || []);
 }
-async function copyJson(what) {
-  const text = payload(what);
+function payload(what, b) {
+  return what === "web" ? JSON.stringify(S._web, null, 2) : JSON.stringify({ tests: exportBatch(b) }, null, 2);
+}
+async function copyJson(what, b) {
+  const text = payload(what, b);
   try { await navigator.clipboard.writeText(text); toast(tr("JSON скопирован.")); }
   catch (e) { toast(tr("Браузер не дал скопировать. Выделите текст в окне JSON и скопируйте вручную."), true); }
 }
-async function downloadJson(what) {
+async function downloadJson(what, b) {
   if (!downloads) return;
   const d = new Date().toISOString().slice(0, 10);
-  try { await downloads.save({ filename: what === "web" ? `web_catalog_draft_${d}.json` : `smartlis_delta_${d}.json`, data: payload(what) }); }
+  try { await downloads.save({ filename: what === "web" ? `web_catalog_draft_${d}.json` : `smartlis_delta_${d}${b !== undefined ? "_p" + (Number(b) + 1) : ""}.json`, data: payload(what, b) }); }
   catch (e) { if (!(e && /cancel|declin|abort/i.test(String(e.code || e.message)))) toast(tr("Не удалось скачать файл."), true); }
 }
 
@@ -1243,9 +1266,9 @@ document.addEventListener("click", async (e) => {
   if (a === "sel-all") { filtered().forEach(t => S.selected.add(t.code)); renderAll(); return; }
   if (a === "bulk-clear") { S.selected.clear(); renderAll(); return; }
   if (a === "bulk-apply") return bulkApply();
-  if (a === "mark-sent") return markSent();
-  if (a === "copy-json") return copyJson(el.dataset.what);
-  if (a === "dl-json") return downloadJson(el.dataset.what);
+  if (a === "mark-sent") return markSent(el.dataset.b);
+  if (a === "copy-json") return copyJson(el.dataset.what, el.dataset.b);
+  if (a === "dl-json") return downloadJson(el.dataset.what, el.dataset.b);
   if (a === "import-cancel") { S.importPlan = null; renderAll(); return; }
   if (a === "import-apply") return applyImport();
   if (a === "excel-cancel") { S.excelPlan = null; renderAll(); return; }
