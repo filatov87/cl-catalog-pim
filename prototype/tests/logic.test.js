@@ -274,3 +274,14 @@ test("price changes are listed with relative change; big jumps flagged", () => {
   assert.equal(L.priceChanges(t, { fin_price2: 20 }, F, S)[0].jump, true);
   assert.equal(L.priceChanges(t, { fin_price2: 10 }, F, S).length, 0);
 });
+
+/* ---- Partner API (25.11.2026): the web JSON is what partners get ---- */
+test("web JSON for partners never carries cost or old contract prices, even if a field is marked for the site", () => {
+  const tests = new Map(sample.tests.map(t => [t.code, JSON.parse(JSON.stringify(t))]));
+  for (const t of tests.values()) t.val.publish = "TRUE";
+  const fields = F.map(f => (f.price ? { ...f, web: 1 } : f));   // someone ticks "на сайт" on every price
+  const web = L.buildWebJson(tests, fields, sample.dicts, { ...S, includeAkc: true });
+  const all = JSON.stringify(web);
+  for (const k of ["fin_cost2", "fin_price1"]) assert.ok(!all.includes(`"${k}"`), `${k} must not leave the app`);
+  assert.ok(web.tests.length > 0 && web.tests.every(t => "fin_price2" in t));
+});

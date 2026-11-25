@@ -416,7 +416,8 @@ function dictName(dicts, k, v) {
 }
 
 function buildWebJson(tests, fields, dicts, settings) {
-  const webFields = fields.filter(f => f.web);
+  // Prices never go by the "на сайт" tick: only the price rule below decides (fin_cost2 / fin_price1 never leave)
+  const webFields = fields.filter(f => f.web && !f.price);
   const regular = [], promotions = [];
   for (const t of [...tests.values()].sort((a, b) => a.code.localeCompare(b.code))) {
     if (t.meta && t.meta.missing) continue;
